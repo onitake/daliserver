@@ -7,5 +7,5 @@ use Data::Dumper;
 
 my $dali = usbdali->new('localhost');
 $dali->connect();
-$dali->send($dali->make_cmd('broadcast', 'off'));
+$dali->send($dali->make_cmd('broadcast', 'up'));
 $dali->disconnect();
