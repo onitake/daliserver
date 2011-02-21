@@ -65,8 +65,8 @@ void *loop_return_new(int error) {
 }
 
 typedef struct {
-	List *oqueue;
-	List *iqueue;
+	ListPtr oqueue;
+	ListPtr iqueue;
 	int socket;
 } HandlerLoopArg;
 
@@ -99,7 +99,7 @@ void *handler_loop(void *arg) {
 				if (rd_bytes == 2) {
 					printf("Got packet\n");
 					DaliFrame *frame = daliframe_new(buffer[0], buffer[1]);
-					list_append(handler_loop_arg->oqueue, frame);
+					list_enqueue(handler_loop_arg->oqueue, frame);
 				}
 			}
 			if ((fds[0].revents & POLLHUP) || (fds[0].revents & POLLERR)) {
@@ -107,7 +107,7 @@ void *handler_loop(void *arg) {
 				connected = 0;
 			}
 		}
-		DaliFrame *frame = list_remove(handler_loop_arg->iqueue);
+		DaliFrame *frame = list_dequeue(handler_loop_arg->iqueue);
 		if (frame) {
 			printf("Sending packet\n");
 			char buffer[2];
@@ -132,8 +132,8 @@ void *handler_loop(void *arg) {
 }
 
 typedef struct {
-	List *oqueue;
-	List *qlist;
+	ListPtr oqueue;
+	ListPtr qlist;
 } ServerLoopArg;
 
 void *server_loop(void *arg) {
@@ -196,7 +196,7 @@ void *server_loop(void *arg) {
 						handler_loop_arg.oqueue = server_loop_arg->oqueue;
 						handler_loop_arg.iqueue = list_new((ListDataFreeFunc) daliframe_free);
 						handler_loop_arg.socket = socket;
-						list_append(server_loop_arg->qlist, handler_loop_arg.iqueue);
+						list_enqueue(server_loop_arg->qlist, handler_loop_arg.iqueue);
 						pthread_t handler;
 						pthread_create(&handler, NULL, handler_loop, &handler_loop_arg);
 					}
@@ -210,10 +210,16 @@ void *server_loop(void *arg) {
 }
 
 typedef struct {
-	List *oqueue;
-	List *qlist;
+	ListPtr oqueue;
+	ListPtr qlist;
 	UsbDali *dali;
 } UsbLoopArg;
+
+void usb_broadcast_callback(UsbDaliError err, DaliFrame *response, void *arg) {
+}
+
+void usb_response_callback(UsbDaliError err, DaliFrame *response, void *arg) {
+}
 
 void *usb_loop(void *arg) {
 	printf("Entering USB thread\n");
@@ -226,13 +232,12 @@ void *usb_loop(void *arg) {
 		}
 #endif
 		
-		DaliFrame *cmd_out = list_remove(usb_loop_arg->oqueue);
+		DaliFrame *cmd_out = list_dequeue(usb_loop_arg->oqueue);
 		if (cmd_out) {
 			printf("USB out address=0x%02x command=0x%02x\n", cmd_out->address, cmd_out->command);
 #ifndef USB_OFF
-			usbdali_send(usb_loop_arg->dali, cmd_out);
+			usbdali_queue(usb_loop_arg->dali, cmd_out, usb_response_callback, NULL);
 #endif
-			daliframe_free(cmd_out);
 		}
 	}
 	printf("Exiting USB thread\n");
@@ -252,16 +257,16 @@ void signal_handler(int sig) {
 int main(int argc, const char **argv) {
 	UsbDali *dali = NULL;
 #ifndef USB_OFF
-	dali = usbdali_open();
+	dali = usbdali_open(NULL, usb_broadcast_callback, NULL);
 	if (!dali) {
 		return -1;
 	}
 #endif
 	
 	// Output command queue
-	List *out_queue = list_new((ListDataFreeFunc) daliframe_free);
+	ListPtr out_queue = list_new((ListDataFreeFunc) daliframe_free);
 	// List the queues for all connections
-	List *queue_list = list_new((ListDataFreeFunc) list_free);
+	ListPtr queue_list = list_new((ListDataFreeFunc) list_free);
 	
 	running = 1;
 	signal(SIGTERM, signal_handler);

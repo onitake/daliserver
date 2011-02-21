@@ -27,29 +27,45 @@
 #define _USB_H
 
 #include <libusb.h>
+#include <sys/types.h>
 
 struct UsbDali;
 typedef struct UsbDali UsbDali;
 
 typedef struct {
-	unsigned char address;
-	unsigned char command;
+	uint8_t address;
+	uint8_t command;
 } DaliFrame;
+
+typedef enum {
+	USBDALI_SUCCESS = 0,
+	USBDALI_SEND_TIMEOUT = -1,
+	USBDALI_RECEIVE_TIMEOUT = -2,
+	USBDALI_SEND_ERROR = -3,
+	USBDALI_RECEIVE_ERROR = -4,
+	USBDALI_QUEUE_FULL = -5,
+} UsbDaliError;
+
+typedef void (*UsbDaliResponseCallback)(UsbDaliError err, DaliFrame *response, void *arg);
 
 // Print a libusb error description to stderr
 const char *libusb_errstring(int error);
 
-// Create libusb context and open the first attache USBDali adapter
-UsbDali *usbdali_open();
+// Open the first attache USBDali adapter.
+// Also creates a libusb context if context is NULL.
+UsbDali *usbdali_open(libusb_context *context, UsbDaliResponseCallback bcast_callback, void *arg);
 // Stop running transfers and close the device, then finalize the libusb context
+// if it was created by usbdali_open.
 void usbdali_close(UsbDali *dali);
-// Submit a Dali command
-int usbdali_send(UsbDali *dali, DaliFrame *frame);
-// Handle pending events, submit a receive request if no transfer is active
+// Enqueue a Dali command
+UsbDaliError usbdali_queue(UsbDali *dali, DaliFrame *frame, UsbDaliResponseCallback callback, void *arg);
+// Handle pending events, submit a receive request if no transfer is active.
 // Wait for timeout (default: 100msec)
-int usbdali_handle(UsbDali *dali);
+UsbDaliError usbdali_handle(UsbDali *dali);
 // Set the handler timeout (in msec)
-void usbdali_set_timeout(UsbDali *dali, unsigned int timeout);
+void usbdali_set_handler_timeout(UsbDali *dali, unsigned int timeout);
+// Set the maximum queue size
+void usbdali_set_queue_size(UsbDali *dali, unsigned int size);
 
 // Allocate a Dali frame
 DaliFrame *daliframe_new(unsigned char address, unsigned char command);
@@ -58,4 +74,4 @@ DaliFrame *daliframe_clone(DaliFrame *frame);
 // Deallocate a Dali frame
 void daliframe_free(DaliFrame *frame);
 
-#endif _USB_H
+#endif /*_USB_H*/

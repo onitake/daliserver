@@ -13,4 +13,4 @@ all: usbdali
 clean:
 	rm -f *.o usbdali
 
-usbdali: usbdali.o list.o util.o usb.o
+usbdali: usbdali.o list.o util.o usb.o pack.o

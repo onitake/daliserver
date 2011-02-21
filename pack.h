@@ -23,19 +23,12 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef _LIST_H
-#define _LIST_H
+#ifndef _PACK_H
+#define _PACK_H
 
 #include <sys/types.h>
 
-struct List;
-typedef struct List *ListPtr;
-typedef void (*ListDataFreeFunc)(void *);
+char *pack(char *format, char *data, size_t *size, ...);
+void unpack(char *format, char *data, size_t *size, ...);
 
-ListPtr list_new(ListDataFreeFunc func);
-void list_free(ListPtr list);
-size_t list_length(ListPtr list);
-void list_enqueue(ListPtr list, void *data);
-void *list_dequeue(ListPtr list);
-
-#endif /*_LIST_H*/
+#endif /*_PACK_H*/

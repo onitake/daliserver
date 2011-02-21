@@ -32,32 +32,33 @@ struct Node {
 	struct Node *next;
 	void *data;
 };
-typedef struct Node Node;
 
 struct List {
 	struct Node *head;
 	struct Node *tail;
 	ListDataFreeFunc free;
 	pthread_mutex_t mutex;
+	size_t length;
 };
 
-List *list_new(ListDataFreeFunc func) {
-	List *list = malloc(sizeof(List));
+ListPtr list_new(ListDataFreeFunc func) {
+	ListPtr list = malloc(sizeof(struct List));
 	if (list) {
-		list->head = NULL;
-		list->tail = NULL;
-		list->free = func;
 		if (pthread_mutex_init(&list->mutex, NULL) != 0) {
 			free(list);
 			list = NULL;
 		}
+		list->head = NULL;
+		list->tail = NULL;
+		list->free = func;
+		list->length = 0;
 	}
 	return list;
 }
 
-void list_append(List *list, void *data) {
+void list_enqueue(ListPtr list, void *data) {
 	if (list) {
-		Node *node = malloc(sizeof(Node));
+		struct Node *node = malloc(sizeof(struct Node));
 		node->next = NULL;
 		node->data = data;
 		pthread_mutex_lock(&list->mutex);
@@ -69,14 +70,15 @@ void list_append(List *list, void *data) {
 		if (!list->head) {
 			list->head = node;
 		}
+		list->length++;
 		pthread_mutex_unlock(&list->mutex);
 	}
 }
 
-void *list_remove(List *list) {
+void *list_dequeue(ListPtr list) {
 	void *data = NULL;
 	if (list) {
-		Node *temp = NULL;
+		struct Node *temp = NULL;
 		pthread_mutex_lock(&list->mutex);
 		if (list->head) {
 			data = list->head->data;
@@ -88,6 +90,7 @@ void *list_remove(List *list) {
 			if (list->tail == temp) {
 				list->tail = NULL;
 			}
+			list->length--;
 		}
 		pthread_mutex_unlock(&list->mutex);
 		free(temp);
@@ -95,10 +98,10 @@ void *list_remove(List *list) {
 	return data;
 }
 
-void list_free(List *list) {
+void list_free(ListPtr list) {
 	if (list) {
 		while (list->head) {
-			void *data = list_remove(list);
+			void *data = list_dequeue(list);
 			if (data) {
 				if (list->free) {
 					list->free(data);
@@ -110,4 +113,11 @@ void list_free(List *list) {
 		pthread_mutex_destroy(&list->mutex);
 		free(list);
 	}
+}
+
+size_t list_length(ListPtr list) {
+	if (list) {
+		return list->length;
+	}
+	return 0;
 }

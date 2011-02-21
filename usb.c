@@ -29,23 +29,98 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include "list.h"
+#include "pack.h"
+
+typedef struct {
+	struct libusb_transfer *transfer;
+	unsigned int seq_num;
+	DaliFrame *request;
+	UsbDaliResponseCallback callback;
+	void *arg;
+} UsbDaliTransfer;
 
 struct UsbDali {
 	libusb_context *context;
+	int free_context;
 	libusb_device_handle *handle;
-	unsigned char ep_in;
-	unsigned char ep_out;
-	unsigned int timeout;
-	struct libusb_transfer *rtransfer;
-	struct libusb_transfer *stransfer;
+	unsigned char endpoint_in;
+	unsigned char endpoint_out;
+	unsigned int cmd_timeout;
+	unsigned int handle_timeout;
+	struct libusb_transfer *recv_transfer;
+	UsbDaliTransfer *send_transfer;
+	unsigned int queue_size;
+	ListPtr queue;
+	unsigned int seq_num;
+	UsbDaliResponseCallback bcast_callback;
+	void *bcast_arg;
 };
+
+typedef struct {
+/*
+       cd sn ?? ?? ad cm ?? ?? sf ?? .. .. .. .. .. ..
+recv
+0000   11 73 00 00 ff 93 ff ff 00 00 00 00 00 00 00 00
+recv
+0000   12 73 00 00 ff 08 ff ff 1d 00 00 00 00 00 00 00
+0000   12 71 00 00 00 00 00 8a 1d 00 00 00 00 00 00 00
+recv
+0000   12 73 00 00 ff 00 ff ff 1c 00 00 00 00 00 00 00
+0000   12 71 00 00 00 00 00 8a 1c 00 00 00 00 00 00 00
+*/
+	uint8_t code;
+	uint8_t seq_num;
+	uint8_t address;
+	uint8_t command;
+	uint16_t type;
+	uint8_t seq_num_from;
+} UsbDaliIn;
+
+typedef struct {
+/*
+       ?? sn ?? ?? ?? ?? ad cm .. .. .. .. .. .. .. ..
+send
+0000   12 1d 00 03 00 00 ff 08 00 00 00 00 00 00 00 00
+send
+0000   12 1c 00 03 00 00 ff 00 00 00 00 00 00 00 00 00
+*/
+	uint8_t code;
+	uint8_t seq_num;
+	uint8_t address;
+	uint8_t command;
+} UsbDaliOut;
 
 const uint16_t VENDOR_ID = 0x17b5;
 const uint16_t PRODUCT_ID = 0x0020;
 const int CONFIGURATION_VALUE = 1;
 const size_t USBDALI_LENGTH = 64;
 const unsigned char USBDALI_HEADER[] = { 0x12, 0x1c, 0x00, 0x03, 0x00, 0x00, };
-const unsigned int TIMEOUT = 100; //msec
+const unsigned int DEFAULT_HANDLER_TIMEOUT = 10; //msec
+const unsigned int DEFAULT_COMMAND_TIMEOUT = 1000; //msec
+const unsigned int DEFAULT_QUEUESIZE = 50; //max. queued commands
+const unsigned int MAX_SEQUENCE_NUMBER = 0xff;
+
+UsbDaliTransfer *usbdali_transfer_new(DaliFrame *request, UsbDaliResponseCallback callback, void *arg) {
+	UsbDaliTransfer *ret = malloc(sizeof(UsbDaliTransfer));
+	if (ret) {
+		memset(ret, 0, sizeof(UsbDaliTransfer));
+		ret->request = request;
+		ret->callback = callback;
+		ret->arg = arg;
+	}
+	return ret;
+}
+
+void usbdali_transfer_free(UsbDaliTransfer *transfer) {
+	if (transfer) {
+		if (transfer->transfer) {
+			libusb_cancel_transfer(transfer->transfer);
+		}
+		daliframe_free(transfer->request);
+		free(transfer);
+	}
+}
 
 const char *libusb_errstring(int error) {
 	switch (error) {
@@ -82,14 +157,19 @@ const char *libusb_errstring(int error) {
 	}
 }
 
-UsbDali *usbdali_open() {
-	libusb_context *context = NULL;
-	int err = libusb_init(&context);
-	if (err != LIBUSB_SUCCESS) {
-		fprintf(stderr, "Error initializing libusb: %s\n", libusb_errstring(err));
-		return NULL;
+UsbDali *usbdali_open(libusb_context *context, UsbDaliResponseCallback bcast_callback, void *arg) {
+	int free_context;
+	if (!context) {
+		free_context = 1;
+		int err = libusb_init(&context);
+		if (err != LIBUSB_SUCCESS) {
+			fprintf(stderr, "Error initializing libusb: %s\n", libusb_errstring(err));
+			return NULL;
+		}
+	} else {
+		free_context = 0;
 	}
-
+	
 	//libusb_set_debug(context, 3);
 
 	libusb_device_handle *handle = libusb_open_device_with_vid_pid(context, VENDOR_ID, PRODUCT_ID);
@@ -101,7 +181,7 @@ UsbDali *usbdali_open() {
 	libusb_device *device = libusb_get_device(handle);
 	
 	struct libusb_config_descriptor *config = NULL;
-	err = libusb_get_config_descriptor_by_value(device, CONFIGURATION_VALUE, &config);
+	int err = libusb_get_config_descriptor_by_value(device, CONFIGURATION_VALUE, &config);
 	if (err != LIBUSB_SUCCESS) {
 		fprintf(stderr, "Error getting configuration descriptor: %s\n", libusb_errstring(err));
 		libusb_close(handle);
@@ -196,23 +276,30 @@ UsbDali *usbdali_open() {
 	}
 	
 	dali->context = context;
+	dali->free_context = free_context;
 	dali->handle = handle;
-	dali->ep_in = endpoint_in;
-	dali->ep_out = endpoint_out;
-	dali->timeout = TIMEOUT * 1000;
-	dali->rtransfer = NULL;
-	dali->stransfer = NULL;
+	dali->endpoint_in = endpoint_in;
+	dali->endpoint_out = endpoint_out;
+	dali->cmd_timeout = DEFAULT_COMMAND_TIMEOUT * 1000;
+	dali->handle_timeout = DEFAULT_HANDLER_TIMEOUT * 1000;
+	dali->recv_transfer = NULL;
+	dali->send_transfer = NULL;
+	dali->queue_size = DEFAULT_QUEUESIZE;
+	dali->queue = list_new((ListDataFreeFunc) usbdali_transfer_free);
+	dali->seq_num = 0;
+	dali->bcast_callback = bcast_callback;
+	dali->bcast_arg = arg;
 	
 	return dali;
 }
 
 void usbdali_close(UsbDali *dali) {
 	if (dali) {
-		if (dali->rtransfer) {
-			libusb_cancel_transfer(dali->rtransfer);
-		}
-		if (dali->stransfer) {
-			libusb_cancel_transfer(dali->stransfer);
+		list_free(dali->queue);
+		
+		usbdali_transfer_free(dali->send_transfer);
+		if (dali->recv_transfer) {
+			libusb_cancel_transfer(dali->recv_transfer);
 		}
 		struct timeval tv = { 0, 0 };
 		libusb_handle_events_timeout(dali->context, &tv);
@@ -226,89 +313,162 @@ void usbdali_close(UsbDali *dali) {
 
 		libusb_close(dali->handle);
 
-		libusb_exit(dali->context);
+		if (dali->free_context) {
+			libusb_exit(dali->context);
+		}
 		
 		free(dali);
 	}
 }
 
-static void usbdali_send_callback(struct libusb_transfer *transfer) {
-	printf("Got USB response to send (status=0x%x)\n", transfer->status);
-	free(transfer->buffer);
-	UsbDali *dali = transfer->user_data;
-	if (dali) {
-		dali->stransfer = NULL;
-	}
-	libusb_free_transfer(transfer);
-}
-
-int usbdali_send(UsbDali *dali, DaliFrame *frame) {
-	if (dali) {
-		if (dali->rtransfer) {
-			libusb_cancel_transfer(dali->rtransfer);
-		}
-
-		unsigned char *buffer = malloc(USBDALI_LENGTH);
-		memset(buffer, 0, USBDALI_LENGTH);
-		memcpy(buffer, USBDALI_HEADER, sizeof(USBDALI_HEADER));
-		size_t offset = sizeof(USBDALI_HEADER);
-		buffer[offset++] = frame->address;
-		buffer[offset++] = frame->command;
-		//if (frame->length > 0 && frame->data) {
-		//	unsigned char maxlen = frame->length > USBDALI_LENGTH - sizeof(USBDALI_HEADER) - 3 ? USBDALI_LENGTH - sizeof(USBDALI_HEADER) - 3 : frame->length;
-		//	buffer[offset++] = maxlen;
-		//	memcpy(&buffer[offset], frame->data, maxlen);
-		//	offset += maxlen;
-		//}
-		
-		printf("Sending data to device:\n");
-		hexdump(buffer, USBDALI_LENGTH);
-		dali->stransfer = libusb_alloc_transfer(0);
-		libusb_fill_interrupt_transfer(dali->stransfer, dali->handle, dali->ep_out, buffer, USBDALI_LENGTH, usbdali_send_callback, dali, TIMEOUT);
-		return libusb_submit_transfer(dali->stransfer);
-	}
-	return -1;
-}
-
 static void usbdali_receive_callback(struct libusb_transfer *transfer) {
 	printf("Received data from device (status=0x%x):\n", transfer->status);
 	hexdump(transfer->buffer, transfer->actual_length);
-	free(transfer->buffer);
+	
+	UsbDaliIn in;
+	size_t length = transfer->actual_length;
+	unpack("CC  CCSC", transfer->buffer, &length, &in.code, &in.seq_num, &in.address, &in.command, &in.type, &in.seq_num_from);
+	
 	UsbDali *dali = transfer->user_data;
-	if (dali) {
-		dali->rtransfer = NULL;
+	if (dali->send_transfer) {
+		switch (transfer->status) {
+			case LIBUSB_TRANSFER_COMPLETED: {
+				DaliFrame *response = daliframe_new(dali->send_transfer->request->address, 0);
+				dali->send_transfer->callback(USBDALI_SUCCESS, response, dali->send_transfer->arg);
+				daliframe_free(response);
+			} break;
+			case LIBUSB_TRANSFER_TIMED_OUT:
+				dali->send_transfer->callback(USBDALI_SEND_TIMEOUT, dali->send_transfer->request, dali->send_transfer->arg);
+				break;
+			case LIBUSB_TRANSFER_ERROR:
+			case LIBUSB_TRANSFER_CANCELLED:
+			case LIBUSB_TRANSFER_STALL:
+			case LIBUSB_TRANSFER_NO_DEVICE:
+			case LIBUSB_TRANSFER_OVERFLOW:
+				dali->send_transfer->callback(USBDALI_SEND_ERROR, dali->send_transfer->request, dali->send_transfer->arg);
+				break;
+		}
+		dali->send_transfer->transfer = NULL;
+		usbdali_transfer_free(dali->send_transfer);
+		dali->send_transfer = NULL;
+	} else {
+		if (transfer->status == LIBUSB_TRANSFER_COMPLETED) {
+			DaliFrame *msg = daliframe_new(0, 0);
+			dali->bcast_callback(USBDALI_SUCCESS, msg, dali->bcast_arg);
+			daliframe_free(msg);
+		}
 	}
+	
+	free(transfer->buffer);
 	libusb_free_transfer(transfer);
 }
 
 static int usbdali_receive(UsbDali *dali) {
-	if (dali && !dali->rtransfer && !dali->stransfer) {
+	if (dali && !dali->recv_transfer) {
 		unsigned char *buffer = malloc(USBDALI_LENGTH);
 		memset(buffer, 0, USBDALI_LENGTH);
 		
 		printf("Receiving data from device\n");
-		dali->rtransfer = libusb_alloc_transfer(0);
-		libusb_fill_interrupt_transfer(dali->rtransfer, dali->handle, dali->ep_in, buffer, USBDALI_LENGTH, usbdali_receive_callback, dali, TIMEOUT);
-		return libusb_submit_transfer(dali->rtransfer);
+		dali->recv_transfer = libusb_alloc_transfer(0);
+		libusb_fill_interrupt_transfer(dali->recv_transfer, dali->handle, dali->endpoint_in, buffer, USBDALI_LENGTH, usbdali_receive_callback, dali, dali->cmd_timeout);
+		return libusb_submit_transfer(dali->recv_transfer);
 	}
 	return -1;
 }
 
-int usbdali_handle(UsbDali *dali) {
-	if (dali) {
-		if (!dali->rtransfer) {
+static void usbdali_send_callback(struct libusb_transfer *transfer) {
+	printf("Sent data to device (status=0x%x)\n", transfer->status);
+	free(transfer->buffer);
+	UsbDali *dali = transfer->user_data;
+	switch (transfer->status) {
+		case LIBUSB_TRANSFER_COMPLETED:
 			usbdali_receive(dali);
+			break;
+		case LIBUSB_TRANSFER_TIMED_OUT:
+			dali->send_transfer->callback(USBDALI_SEND_TIMEOUT, dali->send_transfer->request, dali->send_transfer->arg);
+			break;
+		case LIBUSB_TRANSFER_ERROR:
+		case LIBUSB_TRANSFER_CANCELLED:
+		case LIBUSB_TRANSFER_STALL:
+		case LIBUSB_TRANSFER_NO_DEVICE:
+		case LIBUSB_TRANSFER_OVERFLOW:
+			dali->send_transfer->callback(USBDALI_SEND_ERROR, dali->send_transfer->request, dali->send_transfer->arg);
+			break;
+	}
+	libusb_free_transfer(transfer);
+}
+
+static int usbdali_send(UsbDali *dali, UsbDaliTransfer *transfer) {
+	if (dali && transfer && !dali->send_transfer) {
+		if (dali->recv_transfer) {
+			libusb_cancel_transfer(dali->recv_transfer);
+		}
+
+		unsigned char *buffer = malloc(USBDALI_LENGTH);
+		memset(buffer, 0, USBDALI_LENGTH);
+		size_t length = USBDALI_LENGTH;
+		if (!pack("CCCCCCCC", buffer, &length, 0x12, dali->seq_num, 0x00, 0x03, 0x00, 0x00, transfer->request->address, transfer->request->command)) {
+			free(buffer);
+			return -1;
 		}
 		
-		struct timeval tv = { 0, dali->timeout };
+		printf("Sending data to device:\n");
+		hexdump(buffer, USBDALI_LENGTH);
+		dali->send_transfer = transfer;
+		dali->send_transfer->seq_num = dali->seq_num;
+		if (dali->seq_num == MAX_SEQUENCE_NUMBER) {
+			dali->seq_num = 0;
+		} else {
+			dali->seq_num++;
+		}
+		dali->send_transfer->transfer = libusb_alloc_transfer(0);
+		libusb_fill_interrupt_transfer(dali->send_transfer->transfer, dali->handle, dali->endpoint_out, buffer, USBDALI_LENGTH, usbdali_send_callback, dali, dali->cmd_timeout);
+		return libusb_submit_transfer(dali->send_transfer->transfer);
+	}
+	return -1;
+}
+
+UsbDaliError usbdali_queue(UsbDali *dali, DaliFrame *frame, UsbDaliResponseCallback callback, void *arg) {
+	if (dali) {
+		if (list_length(dali->queue) < dali->queue_size) {
+			UsbDaliTransfer *transfer = usbdali_transfer_new(frame, callback, arg);
+			if (transfer) {
+				list_enqueue(dali->queue, transfer);
+				return USBDALI_SUCCESS;
+			}
+		}
+	}
+	return USBDALI_QUEUE_FULL;
+}
+
+UsbDaliError usbdali_handle(UsbDali *dali) {
+	if (dali) {
+		if (!dali->send_transfer) {
+			UsbDaliTransfer *transfer = list_dequeue(dali->queue);
+			if (transfer) {
+				usbdali_send(dali, transfer);
+			} else {
+				if (!dali->recv_transfer) {
+					usbdali_receive(dali);
+				}
+			}
+		}
+		
+		struct timeval tv = { 0, dali->handle_timeout };
 		return libusb_handle_events_timeout(dali->context, &tv);
 	}
 	return -1;
 }
 
-void usbdali_set_timeout(UsbDali *dali, unsigned int timeout) {
+static void usbdali_set_cmd_timeout(UsbDali *dali, unsigned int timeout) {
 	if (dali) {
-		dali->timeout = timeout * 1000;
+		dali->cmd_timeout = timeout * 1000;
+	}
+}
+
+void usbdali_set_handler_timeout(UsbDali *dali, unsigned int timeout) {
+	if (dali) {
+		dali->handle_timeout = timeout * 1000;
 	}
 }
 
@@ -325,17 +485,11 @@ DaliFrame *daliframe_clone(DaliFrame *frame) {
 	memset(ret, 0, sizeof(DaliFrame));
 	ret->address = frame->address;
 	ret->command = frame->command;
-	//ret->length = frame->length;
-	//ret->data = malloc(frame->length);
-	//memcpy(ret->data, frame->data, ret->length);
 	return ret;
 }
 
 void daliframe_free(DaliFrame *frame) {
 	if (frame) {
-		//if (cmd->data) {
-		//	free(cmd->data);
-		//}
 		free(frame);
 	}
 }
