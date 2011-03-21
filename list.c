@@ -27,15 +27,15 @@
 #include <stdlib.h>
 #include <pthread.h>
 
-struct Node {
-	struct Node *prev;
-	struct Node *next;
+struct ListNode {
+	struct ListNode *prev;
+	struct ListNode *next;
 	void *data;
 };
 
 struct List {
-	struct Node *head;
-	struct Node *tail;
+	struct ListNode *head;
+	struct ListNode *tail;
 	ListDataFreeFunc free;
 	pthread_mutex_t mutex;
 	size_t length;
@@ -56,9 +56,9 @@ ListPtr list_new(ListDataFreeFunc func) {
 	return list;
 }
 
-void list_enqueue(ListPtr list, void *data) {
+ListNodePtr list_enqueue(ListPtr list, void *data) {
 	if (list) {
-		struct Node *node = malloc(sizeof(struct Node));
+		struct ListNode *node = malloc(sizeof(struct ListNode));
 		node->next = NULL;
 		node->data = data;
 		pthread_mutex_lock(&list->mutex);
@@ -72,13 +72,15 @@ void list_enqueue(ListPtr list, void *data) {
 		}
 		list->length++;
 		pthread_mutex_unlock(&list->mutex);
+		return node;
 	}
+	return NULL;
 }
 
 void *list_dequeue(ListPtr list) {
 	void *data = NULL;
 	if (list) {
-		struct Node *temp = NULL;
+		struct ListNode *temp = NULL;
 		pthread_mutex_lock(&list->mutex);
 		if (list->head) {
 			data = list->head->data;
@@ -105,8 +107,6 @@ void list_free(ListPtr list) {
 			if (data) {
 				if (list->free) {
 					list->free(data);
-				} else {
-					free(data);
 				}
 			}
 		}
@@ -120,4 +120,71 @@ size_t list_length(ListPtr list) {
 		return list->length;
 	}
 	return 0;
+}
+
+void *list_remove(ListPtr list, ListNodePtr node) {
+	if (list && node) {
+		pthread_mutex_lock(&list->mutex);
+		if (list->head == node) {
+			list->head = node->next;
+		}
+		if (list->tail == node) {
+			list->tail = node->prev;
+		}
+		if (node->next) {
+			node->next->prev = node->prev;
+		}
+		if (node->prev) {
+			node->prev->next = node->next;
+		}
+		void *data = node->data;
+		free(node);
+		pthread_mutex_unlock(&list->mutex);
+		return data;
+	}
+	return NULL;
+}
+
+void *list_data(ListNodePtr node) {
+	if (node) {
+		return node->data;
+	}
+	return NULL;
+}
+
+ListNodePtr list_find(ListPtr list, ListFindNodeFunc func, void *arg) {
+	if (list) {
+		pthread_mutex_lock(&list->mutex);
+		ListNodePtr node = list->head;
+		while (node && !func(node->data, arg)) {
+			node = node->next;
+		}
+		pthread_mutex_unlock(&list->mutex);
+		return node;
+	}
+	return NULL;
+}
+
+void list_lock(ListPtr list) {
+	if (list) {
+		pthread_mutex_lock(&list->mutex);
+	}
+}
+
+void list_unlock(ListPtr list) {
+	if (list) {
+		pthread_mutex_unlock(&list->mutex);
+	}
+}
+
+ListNodePtr list_first(ListPtr list) {
+	if (list) {
+		return list->head;
+	}
+}
+
+ListNodePtr list_next(ListNodePtr node) {
+	if (node) {
+		return node->next;
+	}
 }

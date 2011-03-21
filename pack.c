@@ -28,6 +28,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <sys/param.h>
+#include <sys/errno.h>
 
 #if defined(__BYTE_ORDER)
 # if __BYTE_ORDER == __LITTLE_ENDIAN
@@ -64,7 +65,7 @@ enum {
 	PACK_SYS = '=',
 };
 
-char *pack(char *format, char *data, size_t *size, ...) {
+static size_t pack_length(char *format) {
 	size_t length = 0;
 	char *fmt;
 	for (fmt = format; *fmt; fmt++) {
@@ -90,12 +91,22 @@ char *pack(char *format, char *data, size_t *size, ...) {
 				break;
 		}
 	}
-	if (data && length > *size) {
+	return length;
+}
+
+char *pack(char *format, char *data, size_t *size, ...) {
+	size_t length = pack_length(format);
+	if (data && (!size || (length > *size))) {
+		errno = EINVAL;
 		return NULL;
 	}
 	char *ret;
 	if (!data) {
 		ret = malloc(length);
+		if (!ret) {
+			errno = ENOMEM;
+			return NULL;
+		}
 	} else {
 		ret = data;
 	}
@@ -105,6 +116,7 @@ char *pack(char *format, char *data, size_t *size, ...) {
 	va_start(args, size);
 	
 	char *out = ret;
+	char *fmt;
 	for (fmt = format; *fmt; fmt++) {
 		switch (*fmt) {
 			case PACK_SKIP: {
@@ -129,8 +141,7 @@ char *pack(char *format, char *data, size_t *size, ...) {
 				out += 2;
 			} break;
 			case PACK_INT:
-			case PACK_UINT:
-			case PACK_FLOAT: {
+			case PACK_UINT: {
 				uint32_t value = va_arg(args, uint32_t);
 				if (little) {
 					out[0] = value & 0xff;
@@ -142,6 +153,22 @@ char *pack(char *format, char *data, size_t *size, ...) {
 					out[1] = (value >> 16) & 0xff;
 					out[2] = (value >> 8) & 0xff;
 					out[3] = value & 0xff;
+				}
+				out += 4;
+			} break;
+			case PACK_FLOAT: {
+				float value = (float) va_arg(args, double);
+				uint32_t cast = *(uint32_t *) &value;
+				if (little) {
+					out[0] = cast & 0xff;
+					out[1] = (cast >> 8) & 0xff;
+					out[2] = (cast >> 16) & 0xff;
+					out[3] = (cast >> 24) & 0xff;
+				} else {
+					out[0] = (cast >> 24) & 0xff;
+					out[1] = (cast >> 16) & 0xff;
+					out[2] = (cast >> 8) & 0xff;
+					out[3] = cast & 0xff;
 				}
 				out += 4;
 			} break;
@@ -183,11 +210,19 @@ char *pack(char *format, char *data, size_t *size, ...) {
 	}
 	
 	va_end(args);
-	*size = length;
+	if (size) {
+		*size = length;
+	}
 	return ret;
 }
 
-void unpack(char *format, char *data, size_t *size, ...) {
+int unpack(char *format, char *data, size_t *size, ...) {
+	size_t length = pack_length(format);
+	if (data && (!size || (length > *size))) {
+		errno = EINVAL;
+		return -1;
+	}
+
 	int little = SYSTEM_LITTLE;
 	va_list args;
 	va_start(args, size);

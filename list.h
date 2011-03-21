@@ -30,12 +30,22 @@
 
 struct List;
 typedef struct List *ListPtr;
+struct ListNode;
+typedef struct ListNode *ListNodePtr;
 typedef void (*ListDataFreeFunc)(void *);
+typedef int (*ListFindNodeFunc)(void *, void *);
 
 ListPtr list_new(ListDataFreeFunc func);
 void list_free(ListPtr list);
 size_t list_length(ListPtr list);
-void list_enqueue(ListPtr list, void *data);
+ListNodePtr list_enqueue(ListPtr list, void *data);
 void *list_dequeue(ListPtr list);
+void *list_remove(ListPtr list, ListNodePtr node);
+void *list_data(ListNodePtr node);
+ListNodePtr list_find(ListPtr list, ListFindNodeFunc func, void *arg);
+void list_lock(ListPtr list);
+void list_unlock(ListPtr list);
+ListNodePtr list_first(ListPtr list);
+ListNodePtr list_next(ListNodePtr node);
 
 #endif /*_LIST_H*/

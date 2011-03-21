@@ -27,15 +27,18 @@
 #define _USB_H
 
 #include <libusb.h>
+#include <poll.h>
 #include <sys/types.h>
 
 struct UsbDali;
-typedef struct UsbDali UsbDali;
+typedef struct UsbDali *UsbDaliPtr;
 
-typedef struct {
+struct DaliFrame {
+	uint8_t ecommand;
 	uint8_t address;
 	uint8_t command;
-} DaliFrame;
+};
+typedef struct DaliFrame *DaliFramePtr;
 
 typedef enum {
 	USBDALI_SUCCESS = 0,
@@ -44,34 +47,44 @@ typedef enum {
 	USBDALI_SEND_ERROR = -3,
 	USBDALI_RECEIVE_ERROR = -4,
 	USBDALI_QUEUE_FULL = -5,
+	USBDALI_INVALID_ARG = -6,
+	USBDALI_NO_MEMORY = -7,
 } UsbDaliError;
 
-typedef void (*UsbDaliResponseCallback)(UsbDaliError err, DaliFrame *response, void *arg);
+typedef void (*UsbDaliOutBandCallback)(UsbDaliError err, DaliFramePtr frame, unsigned int response, void *arg);
+typedef void (*UsbDaliInBandCallback)(UsbDaliError err, DaliFramePtr frame, unsigned int response, void *arg);
 
-// Print a libusb error description to stderr
-const char *libusb_errstring(int error);
+// Return a human-readable error description of the libusb error
+const char *libusb_error_string(int error);
+// Return a human-readable error description of the UsbDali error
+const char *usbdali_error_string(UsbDaliError error);
 
 // Open the first attache USBDali adapter.
 // Also creates a libusb context if context is NULL.
-UsbDali *usbdali_open(libusb_context *context, UsbDaliResponseCallback bcast_callback, void *arg);
+UsbDaliPtr usbdali_open(libusb_context *context, UsbDaliOutBandCallback bcast_callback, void *arg);
 // Stop running transfers and close the device, then finalize the libusb context
 // if it was created by usbdali_open.
-void usbdali_close(UsbDali *dali);
+void usbdali_close(UsbDaliPtr dali);
 // Enqueue a Dali command
-UsbDaliError usbdali_queue(UsbDali *dali, DaliFrame *frame, UsbDaliResponseCallback callback, void *arg);
+UsbDaliError usbdali_queue(UsbDaliPtr dali, DaliFramePtr frame, UsbDaliInBandCallback callback, void *arg);
 // Handle pending events, submit a receive request if no transfer is active.
-// Wait for timeout (default: 100msec)
-UsbDaliError usbdali_handle(UsbDali *dali);
-// Set the handler timeout (in msec)
-void usbdali_set_handler_timeout(UsbDali *dali, unsigned int timeout);
-// Set the maximum queue size
-void usbdali_set_queue_size(UsbDali *dali, unsigned int size);
+// Then wait for timeout
+UsbDaliError usbdali_handle(UsbDaliPtr dali);
+// Set the handler timeout (in msec, default 10)
+void usbdali_set_handler_timeout(UsbDaliPtr dali, unsigned int timeout);
+// Set the maximum queue size (default 50)
+void usbdali_set_queue_size(UsbDaliPtr dali, unsigned int size);
+// Prepare a struct pollfd array with the libusb polling file descriptors filled in.
+// Reserves space at the front so you can fill in your own descriptors.
+// The array must be free'd when done.
+UsbDaliError usbdali_pollfds(UsbDaliPtr dali, size_t reserve, struct pollfd **fds, size_t *nfds);
 
 // Allocate a Dali frame
-DaliFrame *daliframe_new(unsigned char address, unsigned char command);
+DaliFramePtr daliframe_new(uint8_t address, uint8_t command);
+DaliFramePtr daliframe_enew(uint8_t ecommand, uint8_t address, uint8_t command);
 // Duplicate a Dali frame
-DaliFrame *daliframe_clone(DaliFrame *frame);
+DaliFramePtr daliframe_clone(DaliFramePtr frame);
 // Deallocate a Dali frame
-void daliframe_free(DaliFrame *frame);
+void daliframe_free(DaliFramePtr frame);
 
 #endif /*_USB_H*/

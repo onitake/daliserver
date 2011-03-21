@@ -23,12 +23,23 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef _PACK_H
-#define _PACK_H
+#ifndef _IPC_H
+#define _IPC_H
 
-#include <sys/types.h>
+#include <unistd.h>
+#include <poll.h>
+#include <sys/socket.h>
 
-char *pack(char *format, char *data, size_t *size, ...);
-int unpack(char *format, char *data, size_t *size, ...);
+struct Ipc {
+	int sockets[2];
+};
+typedef struct Ipc *IpcPtr;
 
-#endif /*_PACK_H*/
+// Create an unnamed socket pair for interprocess or interthread communication
+IpcPtr ipc_new();
+// Close both sockets and free all resources
+void ipc_free(void *ipc);
+
+// No data handling routines are provided, just use send(2), recv(2), close(2), poll(2), etc.
+
+#endif /*_IPC_H*/

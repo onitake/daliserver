@@ -23,12 +23,33 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef _PACK_H
-#define _PACK_H
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <errno.h>
+#include "ipc.h"
 
-#include <sys/types.h>
+IpcPtr ipc_new() {
+	IpcPtr ret = malloc(sizeof(struct Ipc));
+	if (!ret) {
+		fprintf(stderr, "Error allocating memory for socket pair: %s\n", strerror(errno));
+		return NULL;
+	}
+	// SOCK_STREAM delivers data in the same chunks as they were sent, at least on Mach.
+	// If this is not the case in your OS, SOCK_DGRAM must be used, but this has
+	// the implication that sockets can't be closed. Termination must be signalled some other way.
+	if (socketpair(PF_LOCAL, SOCK_STREAM, 0, ret->sockets) == -1) {
+		fprintf(stderr, "Error creating socket pair: %s\n", strerror(errno));
+		return NULL;
+	}
+	return ret;
+}
 
-char *pack(char *format, char *data, size_t *size, ...);
-int unpack(char *format, char *data, size_t *size, ...);
-
-#endif /*_PACK_H*/
+void ipc_free(void *ipc) {
+	IpcPtr ipcptr = (IpcPtr) ipc;
+	if (ipcptr) {
+		close(ipcptr->sockets[0]);
+		close(ipcptr->sockets[1]);
+		free(ipc);
+	}
+}
