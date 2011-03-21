@@ -134,6 +134,7 @@ int server_start(ServerPtr server);
 
 struct Connection {
 	int socket;
+	// TODO: uint8_t ought to be enough - we only allow 50 connections anyway.
 	uint32_t ident;
 	IpcPtr ipc;
 	ServerPtr server;
@@ -305,10 +306,7 @@ void *connection_loop(void *arg) {
 				connected = 0;
 				ret = -1;
 			} else if (rdy_fds > 0) {
-				if ((fds[1].revents & POLLHUP) || (fds[1].revents & POLLERR)) {
-					printf("IPC closed\n");
-					connected = 0;
-				} else if (connected && (fds[1].revents & POLLIN)) {
+				if (fds[1].revents & POLLIN) {
 					char buffer[8];
 					ssize_t rd = read(conn->ipc->sockets[0], buffer, sizeof(buffer));
 					if (rd == -1) {
@@ -364,10 +362,7 @@ void *connection_loop(void *arg) {
 						}
 					}
 				}
-				if ((fds[0].revents & POLLHUP) || (fds[0].revents & POLLERR)) {
-					printf("Connection closed\n");
-					connected = 0;
-				} else if (connected && (fds[0].revents & POLLIN)) {
+				if (fds[0].revents & POLLIN) {
 					char buffer[2];
 					ssize_t rd = read(conn->socket, buffer, sizeof(buffer));
 					if (rd == -1) {
@@ -380,7 +375,7 @@ void *connection_loop(void *arg) {
 						connected = 0;
 					}
 					if (rd == 2) {
-						printf("Got packet(0x%02x, 0x%02x)\n", buffer[0], buffer[1]);
+						printf("Got packet(0x%02x, 0x%02x)\n", (uint8_t) buffer[0], (uint8_t) buffer[1]);
 						if (!conn->waiting) {
 							char buffer2[8];
 							buffer2[0] = IPC_COMMAND;
@@ -397,6 +392,14 @@ void *connection_loop(void *arg) {
 							printf("Command already queued, ignoring\n");
 						}
 					}
+				}
+				if ((fds[1].revents & POLLHUP) || (fds[1].revents & POLLERR)) {
+					printf("IPC closed\n");
+					connected = 0;
+				}
+				if ((fds[0].revents & POLLHUP) || (fds[0].revents & POLLERR)) {
+					printf("Connection closed\n");
+					connected = 0;
 				}
 			}
 		}
@@ -466,6 +469,7 @@ void *server_loop(void *arg) {
 											if (incoming.sin_family != AF_INET) {
 												fprintf(stderr, "Invalid address family from incoming connection %d\n", incoming.sin_family);
 											} else {
+												// TODO: Check for ident availability before use
 												char addr[16];
 												printf("Got connection from %s:%u, creating handler %d\n", inet_ntop(incoming.sin_family, &incoming.sin_addr, addr, sizeof(addr)), incoming.sin_port, ident);
 												ConnectionPtr conn = connection_new(server, socket, ident++);
@@ -664,13 +668,13 @@ void *usb_loop(void *arg) {
 					if (rd == 8) {
 						switch (buffer[0]) {
 						case IPC_COMMAND:
+							printf("USB out address=0x%02x command=0x%02x\n", (uint8_t) buffer[1], (uint8_t) buffer[2]);
 							if (usb->dali) {
 								uint32_t ident = buffer[4] | (buffer[5] << 8) | (buffer[6] << 16) | (buffer[7] << 24);
 								// TODO: Do this in dali_inband_callback instead
 								ListNodePtr node = list_find(usb->server->connections, connection_has_id, &ident);
 								if (node) {
 									DaliFramePtr frame = daliframe_new(buffer[1], buffer[2]);
-									printf("USB out address=0x%02x command=0x%02x\n", frame->address, frame->command);
 									UsbDaliError err = usbdali_queue(usb->dali, frame, dali_inband_callback, list_data(node));
 									if (err != USBDALI_SUCCESS) {
 										fprintf(stderr, "Error sending command through USB: %s\n", usbdali_error_string(err));
