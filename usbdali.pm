@@ -46,16 +46,32 @@ sub connect {
 	my ($self) = @_;
 	if (!defined($self->{host})) {
 		warn("Can't connect. No hostname set.");
+		return undef;
 	} else {
 		if ($self->{socket}) {
 			$self->{socket}->close();
 		}
-		$self->{socket} = IO::Socket->new() || warn("Can't create socket");
+		$self->{socket} = IO::Socket->new();
+		if (!$self->{socket}) {
+			warn("Can't create socket");
+			return undef;
+		}
 		my $proto = getprotobyname('tcp');
-		$self->{socket}->socket(PF_INET, SOCK_STREAM, $proto) || warn("Can't create socket");
-		my $address = sockaddr_in($self->{port}, inet_aton($self->{host})) || warn("Invalid host/port");
-		$self->{socket}->connect($address) || warn("Can't connect to $self->{host}:$self->{port}");
+		if (!$self->{socket}->socket(PF_INET, SOCK_STREAM, $proto)) {
+			warn("Can't create socket");
+			return undef;
+		}
+		my $address = sockaddr_in($self->{port}, inet_aton($self->{host}));
+		if (!$address) {
+			warn("Invalid host/port");
+			return undef;
+		}
+		if (!$self->{socket}->connect($address)) {
+			warn("Can't connect to $self->{host}:$self->{port}");
+			return undef;
+		}
 	}
+	return 1;
 }
 
 sub disconnect {
@@ -116,22 +132,22 @@ sub add_device {
 
 sub make_dim {
 	my ($self, $type, $dest, $value) = @_;
-	my $address;
+	my @ret;
 	given ($type) {
 		when (/lamp/) {
-			return ($dest & 0x3f) << 1;
+			@ret = (($dest & 0x3f) << 1, $value);
 		}
 		when (/group/) {
-			return 0x80 | (($dest & 0xf) << 1);
+			@ret = (0x80 | (($dest & 0xf) << 1), $value);
 		}
 		when (/broadcast/) {
-			return 0xfe;
+			@ret = (0xfe, $dest);
 		}
 		default {
-			$address = 0;
+			@ret = (0, 0);
 		}
 	}
-	return ($address, $value);
+	return @ret;
 }
 
 sub make_cmd {
