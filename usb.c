@@ -674,7 +674,8 @@ UsbDaliError usbdali_queue(UsbDaliPtr dali, DaliFramePtr frame, UsbDaliInBandCal
 			UsbDaliTransfer *transfer = usbdali_transfer_new(frame, callback, arg);
 			if (transfer) {
 				list_enqueue(dali->queue, transfer);
-				return USBDALI_SUCCESS;
+				return usbdali_handle(dali);
+				//return USBDALI_SUCCESS;
 			}
 		}
 		return USBDALI_QUEUE_FULL;
@@ -696,7 +697,12 @@ UsbDaliError usbdali_handle(UsbDaliPtr dali) {
 		}
 		
 		struct timeval tv = { 0, dali->handle_timeout };
-		return libusb_handle_events_timeout(dali->context, &tv);
+		int err = libusb_handle_events_timeout(dali->context, &tv);
+		if (err == LIBUSB_SUCCESS) {
+			return USBDALI_SUCCESS;
+		} else {
+			return USBDALI_SEND_ERROR;
+		}
 	}
 	return USBDALI_INVALID_ARG;
 }

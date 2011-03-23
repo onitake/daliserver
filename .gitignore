@@ -1,4 +1,5 @@
 *.o
+*.a
 usbdali
 daliserver
 testsock

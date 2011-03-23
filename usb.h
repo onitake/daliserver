@@ -70,7 +70,7 @@ UsbDaliError usbdali_queue(UsbDaliPtr dali, DaliFramePtr frame, UsbDaliInBandCal
 // Handle pending events, submit a receive request if no transfer is active.
 // Then wait for timeout
 UsbDaliError usbdali_handle(UsbDaliPtr dali);
-// Set the handler timeout (in msec, default 10)
+// Set the handler timeout (in msec, default 10, 0 is nonblocking)
 void usbdali_set_handler_timeout(UsbDaliPtr dali, unsigned int timeout);
 // Set the maximum queue size (default 50)
 void usbdali_set_queue_size(UsbDaliPtr dali, unsigned int size);

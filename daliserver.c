@@ -258,6 +258,9 @@ UsbPtr usb_new(ServerPtr server) {
 		ret->server = server;
 #ifndef USB_OFF
 		ret->dali = usbdali_open(NULL, dali_outband_callback, ret);
+		if (ret->dali) {
+			usbdali_set_handler_timeout(ret->dali, 0);
+		}
 #else
 		ret->dali = NULL;
 #endif
@@ -671,18 +674,20 @@ void *usb_loop(void *arg) {
 							printf("USB out address=0x%02x command=0x%02x\n", (uint8_t) buffer[1], (uint8_t) buffer[2]);
 							if (usb->dali) {
 								uint32_t ident = buffer[4] | (buffer[5] << 8) | (buffer[6] << 16) | (buffer[7] << 24);
+								DaliFramePtr frame = daliframe_new(buffer[1], buffer[2]);
 								// TODO: Do this in dali_inband_callback instead
 								ListNodePtr node = list_find(usb->server->connections, connection_has_id, &ident);
+								ConnectionPtr conn = NULL;
 								if (node) {
-									DaliFramePtr frame = daliframe_new(buffer[1], buffer[2]);
-									UsbDaliError err = usbdali_queue(usb->dali, frame, dali_inband_callback, list_data(node));
-									if (err != USBDALI_SUCCESS) {
-										fprintf(stderr, "Error sending command through USB: %s\n", usbdali_error_string(err));
-										ret = -1;
-										running = 0;
-									}
+									conn = list_data(node);
 								} else {
-									printf("Connection %d is gone\n", ident);
+									printf("Connection %d is gone, ignoring response\n", ident);
+								}
+								UsbDaliError err = usbdali_queue(usb->dali, frame, dali_inband_callback, conn);
+								if (err != USBDALI_SUCCESS) {
+									fprintf(stderr, "Error sending command through USB: %s\n", usbdali_error_string(err));
+									ret = -1;
+									running = 0;
 								}
 							}
 							break;
