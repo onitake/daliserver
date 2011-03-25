@@ -129,6 +129,7 @@ const size_t USBDALI_LENGTH = 64;
 const unsigned int DEFAULT_HANDLER_TIMEOUT = 10; //msec
 const unsigned int DEFAULT_COMMAND_TIMEOUT = 1000; //msec
 const unsigned int DEFAULT_QUEUESIZE = 50; //max. queued commands
+const unsigned int MAX_LIBUSB_TIMEOUT = 1000; //sec
 
 UsbDaliTransfer *usbdali_transfer_new(DaliFramePtr request, UsbDaliInBandCallback callback, void *arg) {
 	UsbDaliTransfer *ret = malloc(sizeof(UsbDaliTransfer));
@@ -746,6 +747,41 @@ UsbDaliError usbdali_pollfds(UsbDaliPtr dali, size_t reserve, struct pollfd **fd
 		}
 	}
 	return USBDALI_INVALID_ARG;
+}
+
+int usbdali_next_timeout(UsbDaliPtr dali, int minimum) {
+	if (dali) {
+		if (list_length(dali->queue) > 0 && !dali->send_transfer && !dali->recv_transfer) {
+			return 0;
+		}
+		struct timeval tv;
+		int err = libusb_get_next_timeout(dali->context, &tv);
+		int to = 0;
+		if (err == LIBUSB_SUCCESS) {
+			// Range limitiation, also don't wait forever!
+			if (tv.tv_sec > MAX_LIBUSB_TIMEOUT) {
+				to = MAX_LIBUSB_TIMEOUT;
+			} else {
+				to = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+			}
+		}
+		if (to < dali->handle_timeout) {
+			if (to < minimum) {
+				return to;
+			} else {
+				return ?
+			}
+		} else {
+			if (to < minimum) {
+				return ?;
+			} else {
+				return ?
+			}
+		}
+		}
+		return dali->handle_timeout;
+	}
+	return -1;
 }
 
 DaliFramePtr daliframe_new(uint8_t address, uint8_t command) {
