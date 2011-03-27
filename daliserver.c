@@ -261,6 +261,7 @@ UsbPtr usb_new(ServerPtr server) {
 		ret->dali = usbdali_open(NULL, dali_outband_callback, ret);
 		if (ret->dali) {
 			usbdali_set_handler_timeout(ret->dali, 0);
+			usbdali_set_debug(ret->dali, 1);
 		}
 #else
 		ret->dali = NULL;
@@ -648,7 +649,9 @@ void *usb_loop(void *arg) {
 			fds[0].revents = 0;
 		}
 		while (running) {
-			int rdy_fds = poll(fds, nfds, WAIT_POLL);
+			// This just returns WAIT_POLL if usb->dali is NULL
+			int timeout = usbdali_next_timeout(usb->dali, WAIT_POLL);
+			int rdy_fds = poll(fds, nfds, timeout);
 			if (rdy_fds == -1) {
 				fprintf(stderr, "Error waiting for USB data or IPC: %s\n", strerror(errno));
 				ret = -1;
@@ -698,15 +701,14 @@ void *usb_loop(void *arg) {
 						}
 					}
 				}
-				if (!(fds[0].revents & POLLERR) && !(fds[0].revents & POLLHUP) && !(fds[0].revents & POLLIN) || rdy_fds > 1) {
-					if (usb->dali) {
-						UsbDaliError err = usbdali_handle(usb->dali);
-						if (err != USBDALI_SUCCESS) {
-							fprintf(stderr, "Error handling USB events: %s\n", usbdali_error_string(err));
-							ret = -1;
-							running = 0;
-						}
-					}
+			}
+			// Always handle libusb events, no harm done if there's nothing in the queue
+			if (usb->dali) {
+				UsbDaliError err = usbdali_handle(usb->dali);
+				if (err != USBDALI_SUCCESS) {
+					fprintf(stderr, "Error handling USB events: %s\n", usbdali_error_string(err));
+					ret = -1;
+					running = 0;
 				}
 			}
 		}

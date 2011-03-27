@@ -74,13 +74,16 @@ UsbDaliError usbdali_handle(UsbDaliPtr dali);
 void usbdali_set_handler_timeout(UsbDaliPtr dali, unsigned int timeout);
 // Set the maximum queue size (default 50)
 void usbdali_set_queue_size(UsbDaliPtr dali, unsigned int size);
+// Enable/disable debug messages (default: disabled)
+void usbdali_set_debug(UsbDaliPtr dali, int enable);
 // Prepare a struct pollfd array with the libusb polling file descriptors filled in.
 // Reserves space ('reserve' pollfd ptrs) at the front so you can fill in your own descriptors.
 // The array must be free'd when done.
 UsbDaliError usbdali_pollfds(UsbDaliPtr dali, size_t reserve, struct pollfd **fds, size_t *nfds);
 // Return the next timeout for your poll() call, in milliseconds.
 // When it timeouts, you must call usbdali_handle().
-int usbdali_next_timeout(UsbDaliPtr dali);
+// Minimum specifies a lower bond and will also be returned when libusb doesn't require timeouts
+int usbdali_next_timeout(UsbDaliPtr dali, int minimum);
 
 // Allocate a Dali frame
 DaliFramePtr daliframe_new(uint8_t address, uint8_t command);
