@@ -322,8 +322,7 @@ void *connection_loop(void *arg) {
 							printf("IPC closed, exiting handler\n");
 						}
 						connected = 0;
-					}
-					if (rd == 8) {
+					} else if (rd == 8) {
 						switch (buffer[0]) {
 						case IPC_OUTBAND:
 							if (!conn->waiting) {
@@ -365,6 +364,9 @@ void *connection_loop(void *arg) {
 							conn->waiting = 0;
 							break;
 						}
+					} else {
+						fprintf(stderr, "Short read on IPC, only got %ld bytes\n", rd);
+						connected = 0;
 					}
 				}
 				if (fds[0].revents & POLLIN) {
@@ -378,8 +380,7 @@ void *connection_loop(void *arg) {
 							printf("Connection closed, exiting handler\n");
 						}
 						connected = 0;
-					}
-					if (rd == 2) {
+					} else if (rd == 2) {
 						printf("Got packet(0x%02x, 0x%02x)\n", (uint8_t) buffer[0], (uint8_t) buffer[1]);
 						if (!conn->waiting) {
 							char buffer2[8];
@@ -396,6 +397,9 @@ void *connection_loop(void *arg) {
 						} else {
 							printf("Command already queued, ignoring\n");
 						}
+					} else {
+						fprintf(stderr, "Short read on socket, only got %ld bytes\n", rd);
+						connected = 0;
 					}
 				}
 				if ((fds[1].revents & POLLHUP) || (fds[1].revents & POLLERR)) {
