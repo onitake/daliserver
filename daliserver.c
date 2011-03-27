@@ -26,6 +26,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <signal.h>
 #include <errno.h>
 #include <poll.h>
 #include <unistd.h>
