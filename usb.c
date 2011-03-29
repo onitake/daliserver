@@ -386,13 +386,6 @@ UsbDaliPtr usbdali_open(libusb_context *context, UsbDaliOutBandCallback bcast_ca
 
 	libusb_free_config_descriptor(config);
 	
-	err = libusb_set_configuration(handle, CONFIGURATION_VALUE);
-	if (err != LIBUSB_SUCCESS) {
-		fprintf(stderr, "Error setting configuration: %s\n", libusb_error_string(err));
-		libusb_close(handle);
-		return NULL;
-	}
-
 	err = libusb_kernel_driver_active(handle, 0);
 	if (err < LIBUSB_SUCCESS) {
 		fprintf(stderr, "Error getting interface active state: %s\n", libusb_error_string(err));
@@ -406,6 +399,13 @@ UsbDaliPtr usbdali_open(libusb_context *context, UsbDaliOutBandCallback bcast_ca
 		}
 	}
 	
+	err = libusb_set_configuration(handle, CONFIGURATION_VALUE);
+	if (err != LIBUSB_SUCCESS) {
+		fprintf(stderr, "Error setting configuration: %s\n", libusb_error_string(err));
+		libusb_close(handle);
+		return NULL;
+	}
+
 	err = libusb_claim_interface(handle, 0);
 	if (err != LIBUSB_SUCCESS) {
 		fprintf(stderr, "Error claiming interface: %s\n", libusb_error_string(err));
@@ -695,9 +695,15 @@ static int usbdali_send(UsbDaliPtr dali, UsbDaliTransfer *transfer) {
 
 UsbDaliError usbdali_queue(UsbDaliPtr dali, DaliFramePtr frame, UsbDaliInBandCallback callback, void *arg) {
 	if (dali) {
+		if (dali->debug) {
+			printf("dali=%p frame=%p callback=%p arg=%p\n", dali, frame, callback, arg);
+		}
 		if (list_length(dali->queue) < dali->queue_size) {
 			UsbDaliTransfer *transfer = usbdali_transfer_new(frame, callback, arg);
 			if (transfer) {
+				if (dali->debug) {
+					printf("Enqueued transfer (%p,%p,%p)\n", transfer->request, transfer->callback, transfer->arg);
+				}
 				list_enqueue(dali->queue, transfer);
 				return usbdali_handle(dali);
 				//return USBDALI_SUCCESS;
@@ -710,12 +716,24 @@ UsbDaliError usbdali_queue(UsbDaliPtr dali, DaliFramePtr frame, UsbDaliInBandCal
 
 UsbDaliError usbdali_handle(UsbDaliPtr dali) {
 	if (dali) {
+		if (dali->debug) {
+			printf("Handling requests\n");
+		}
 		if (!dali->send_transfer) {
+			if (dali->debug) {
+				printf("No send transfer active\n");
+			}
 			UsbDaliTransfer *transfer = list_dequeue(dali->queue);
 			if (transfer) {
+				if (dali->debug) {
+					printf("Dequeued transfer\n");
+				}
 				usbdali_send(dali, transfer);
 			} else {
 				if (!dali->recv_transfer) {
+					if (dali->debug) {
+						printf("No receive transfer active\n");
+					}
 					usbdali_receive(dali);
 				}
 			}
