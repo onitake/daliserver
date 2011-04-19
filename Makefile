@@ -31,3 +31,7 @@ testsock: testsock.o
 
 testlist: testlist.o libdaliusb.a
 	$(LD) $(LDFLAGS) $(LIBS) -o $@ $^
+
+testarray: testarray.o libdaliusb.a
+	$(LD) $(LDFLAGS) $(LIBS) -o $@ $^
+

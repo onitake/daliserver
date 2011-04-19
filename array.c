@@ -48,7 +48,9 @@ ArrayPtr array_new(size_t elemsize) {
 
 void array_free(ArrayPtr array) {
 	if (array) {
-		free(array->data);
+		if (array->data) {
+			free(array->data);
+		}
 		free(array);
 	}
 }
@@ -74,9 +76,9 @@ ssize_t array_append(ArrayPtr array, void *data) {
 			array->allocated = 1;
 			array->data = malloc(array->elemsize * array->allocated);
 		}
-		if (array->length + 1 < array->allocated) {
+		if (array->length + 1 > array->allocated) {
 			array->allocated <<= 1;
-			array->data = realloc(array->data, array->allocated);
+			array->data = realloc(array->data, array->elemsize * array->allocated);
 		}
 		if (array->data) {
 			uint8_t *ptr = (uint8_t *) array->data;
