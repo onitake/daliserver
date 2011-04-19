@@ -774,11 +774,11 @@ UsbDaliError usbdali_queue(UsbDaliPtr dali, DaliFramePtr frame, void *cbarg) {
 UsbDaliError usbdali_handle(UsbDaliPtr dali) {
 	if (dali) {
 		if (dali->debug) {
-			printf("Handling requests\n");
+			//printf("Handling requests\n");
 		}
 		if (!dali->send_transfer) {
 			if (dali->debug) {
-				printf("No send transfer active\n");
+				//printf("No send transfer active\n");
 			}
 			UsbDaliTransfer *transfer = list_dequeue(dali->queue);
 			if (transfer) {
@@ -789,7 +789,7 @@ UsbDaliError usbdali_handle(UsbDaliPtr dali) {
 			} else {
 				if (!dali->recv_transfer) {
 					if (dali->debug) {
-						printf("No receive transfer active\n");
+						//printf("No receive transfer active\n");
 					}
 					usbdali_receive(dali);
 				}
