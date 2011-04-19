@@ -16,7 +16,7 @@ all: daliserver
 clean:
 	rm -f *.o daliserver testpack testsock
 
-libdaliusb.a: list.o util.o usb.o pack.o ipc.o
+libdaliusb.a: list.o util.o usb.o pack.o ipc.o array.o
 	$(AR) cru $@ $^
 	$(RANLIB) $@
 

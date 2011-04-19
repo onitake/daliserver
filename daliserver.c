@@ -162,6 +162,7 @@ void *usb_loop(void *arg);
 
 void dali_outband_callback(UsbDaliError err, DaliFramePtr frame, unsigned int response, void *arg);
 void dali_inband_callback(UsbDaliError err, DaliFramePtr frame, unsigned int response, void *arg);
+void dali_event_callback(int closed, void *arg);
 
 static int running;
 
@@ -258,10 +259,12 @@ UsbPtr usb_new(ServerPtr server) {
 		memset(&ret->thread, 0, sizeof(ret->thread));
 		ret->server = server;
 #ifndef USB_OFF
-		ret->dali = usbdali_open(NULL, dali_outband_callback, ret);
+		ret->dali = usbdali_open(NULL);
 		if (ret->dali) {
-			usbdali_set_handler_timeout(ret->dali, 0);
 			usbdali_set_debug(ret->dali, 1);
+			usbdali_set_inband_callback(ret->dali, dali_inband_callback);
+			usbdali_set_outband_callback(ret->dali, dali_outband_callback, ret);
+			usbdali_set_event_callback(ret->dali, ret->server->ipc->sockets[0], dali_event_callback, ret);
 		}
 #else
 		ret->dali = NULL;
@@ -627,6 +630,55 @@ void dali_inband_callback(UsbDaliError err, DaliFramePtr frame, unsigned int res
 	}
 }
 
+void dali_event_callback(int closed, void *arg) {
+	UsbPtr usb = (UsbPtr) arg;
+	if (usb) {
+		if (closed) {
+			fprintf(stderr, "IPC closed\n");
+			running = 0;
+		} else {
+			// TODO: Handle IPC
+			char buffer[8];
+			ssize_t rd = read(usb->server->ipc->sockets[0], buffer, sizeof(buffer));
+			if (rd == -1) {
+				if (errno != ECONNRESET) {
+					fprintf(stderr, "Error reading from IPC: %s\n", strerror(errno));
+				} else {
+					printf("IPC closed, exiting USB thread\n");
+				}
+				running = 0;
+			}
+			if (rd == 8) {
+				switch (buffer[0]) {
+				case IPC_COMMAND:
+					printf("USB out address=0x%02x command=0x%02x\n", (uint8_t) buffer[1], (uint8_t) buffer[2]);
+					if (usb->dali) {
+						uint32_t ident = buffer[4] | (buffer[5] << 8) | (buffer[6] << 16) | (buffer[7] << 24);
+						DaliFramePtr frame = daliframe_new(buffer[1], buffer[2]);
+						// TODO: Do this in dali_inband_callback instead
+						ListNodePtr node = list_find(usb->server->connections, connection_has_id, &ident);
+						ConnectionPtr conn = NULL;
+						if (node) {
+							conn = list_data(node);
+						} else {
+							printf("Connection %d is gone, ignoring response\n", ident);
+						}
+						UsbDaliError err = usbdali_queue(usb->dali, frame, conn);
+						if (err != USBDALI_SUCCESS) {
+							fprintf(stderr, "Error sending command through USB: %s\n", usbdali_error_string(err));
+							running = 0;
+						}
+					}
+					break;
+				default:
+					fprintf(stderr, "Invalid request: %d\n", buffer[0]);
+					break;
+				}
+			}
+		}
+	}
+}
+
 void *usb_loop(void *arg) {
 	printf("Entering USB thread\n");
 	
@@ -634,85 +686,32 @@ void *usb_loop(void *arg) {
 	
 	UsbPtr usb = (UsbPtr) arg;
 	if (usb) {
-		struct pollfd *fds = NULL;
-		size_t nfds = 0;
-		if (usb->dali) {
-			UsbDaliError err = usbdali_pollfds(usb->dali, 1, &fds, &nfds);
-			if (err != USBDALI_SUCCESS) {
-				fprintf(stderr, "Error getting USB polling descriptors: %s\n", usbdali_error_string(err));
-				ret = -1;
-				running = 0;
-			}
-		} else {
-			fds = malloc(sizeof(struct pollfd));
-			nfds = 1;
-		}
-		if (fds) {
-			fds[0].fd = usb->server->ipc->sockets[0];
-			fds[0].events = POLLIN;
-			fds[0].revents = 0;
-		}
 		while (running) {
-			// This just returns WAIT_POLL if usb->dali is NULL
-			int timeout = usbdali_next_timeout(usb->dali, WAIT_POLL);
-			int rdy_fds = poll(fds, nfds, timeout);
-			if (rdy_fds == -1) {
-				fprintf(stderr, "Error waiting for USB data or IPC: %s\n", strerror(errno));
-				ret = -1;
-				running = 0;
-			} else if (rdy_fds > 0) {
-				if ((fds[0].revents & POLLERR) || (fds[0].revents & POLLHUP)) {
-					fprintf(stderr, "IPC closed\n");
-					running = 0;
-				} else if (fds[0].revents & POLLIN) {
-					char buffer[8];
-					ssize_t rd = read(usb->server->ipc->sockets[0], buffer, sizeof(buffer));
-					if (rd == -1) {
-						if (errno != ECONNRESET) {
-							fprintf(stderr, "Error reading from IPC: %s\n", strerror(errno));
-							ret = -1;
-						} else {
-							printf("IPC closed, exiting USB thread\n");
-						}
-						running = 0;
-					}
-					if (rd == 8) {
-						switch (buffer[0]) {
-						case IPC_COMMAND:
-							printf("USB out address=0x%02x command=0x%02x\n", (uint8_t) buffer[1], (uint8_t) buffer[2]);
-							if (usb->dali) {
-								uint32_t ident = buffer[4] | (buffer[5] << 8) | (buffer[6] << 16) | (buffer[7] << 24);
-								DaliFramePtr frame = daliframe_new(buffer[1], buffer[2]);
-								// TODO: Do this in dali_inband_callback instead
-								ListNodePtr node = list_find(usb->server->connections, connection_has_id, &ident);
-								ConnectionPtr conn = NULL;
-								if (node) {
-									conn = list_data(node);
-								} else {
-									printf("Connection %d is gone, ignoring response\n", ident);
-								}
-								UsbDaliError err = usbdali_queue(usb->dali, frame, dali_inband_callback, conn);
-								if (err != USBDALI_SUCCESS) {
-									fprintf(stderr, "Error sending command through USB: %s\n", usbdali_error_string(err));
-									ret = -1;
-									running = 0;
-								}
-							}
-							break;
-						default:
-							fprintf(stderr, "Invalid request: %d\n", buffer[0]);
-							break;
-						}
-					}
-				}
-			}
-			// Always handle libusb events, no harm done if there's nothing in the queue
-			if (usb->dali) {
-				UsbDaliError err = usbdali_handle(usb->dali);
-				if (err != USBDALI_SUCCESS) {
-					fprintf(stderr, "Error handling USB events: %s\n", usbdali_error_string(err));
+			if (!usb->dali) {
+				struct pollfd fds;
+				fds.fd = usb->server->ipc->sockets[0];
+				fds.events = POLLIN;
+				fds.revents = 0;
+				int rdy_fds = poll(&fds, 1, WAIT_POLL);
+				if (rdy_fds == -1) {
+					fprintf(stderr, "Error waiting for USB data or IPC: %s\n", strerror(errno));
 					ret = -1;
 					running = 0;
+				} else if (rdy_fds > 0) {
+					if ((fds.revents & POLLERR) || (fds.revents & POLLHUP)) {
+						dali_event_callback(1, usb);
+					} else if (fds.revents & POLLIN) {
+						dali_event_callback(0, usb);
+					}
+				}
+			} else {
+				if (usb->dali) {
+					UsbDaliError err = usbdali_handle(usb->dali);
+					if (err != USBDALI_SUCCESS) {
+						fprintf(stderr, "Error handling USB events: %s\n", usbdali_error_string(err));
+						ret = -1;
+						running = 0;
+					}
 				}
 			}
 		}
