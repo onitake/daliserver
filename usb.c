@@ -830,6 +830,7 @@ UsbDaliError usbdali_handle(UsbDaliPtr dali) {
 				}
 			}
 		}
+		return USBDALI_SUCCESS;
 	}
 	return USBDALI_INVALID_ARG;
 }

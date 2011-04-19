@@ -28,3 +28,6 @@ testpack: testpack.o pack.o util.o
 
 testsock: testsock.o
 	$(LD) -o $@ $^
+
+testlist: testlist.o libdaliusb.a
+	$(LD) $(LDFLAGS) $(LIBS) -o $@ $^

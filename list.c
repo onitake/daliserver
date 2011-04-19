@@ -139,6 +139,7 @@ void *list_remove(ListPtr list, ListNodePtr node) {
 		}
 		void *data = node->data;
 		free(node);
+		list->length--;
 		pthread_mutex_unlock(&list->mutex);
 		return data;
 	}
