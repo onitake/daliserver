@@ -368,6 +368,9 @@ UsbDaliPtr usbdali_open(libusb_context *context) {
 	libusb_device_handle *handle = libusb_open_device_with_vid_pid(context, VENDOR_ID, PRODUCT_ID);
 	if (!handle) {
 		fprintf(stderr, "Can't find USB device\n");
+		if (free_context) {
+			libusb_exit(context);
+		}
 		return NULL;
 	}
 	
@@ -378,24 +381,36 @@ UsbDaliPtr usbdali_open(libusb_context *context) {
 	if (err != LIBUSB_SUCCESS) {
 		fprintf(stderr, "Error getting configuration descriptor: %s\n", libusb_error_string(err));
 		libusb_close(handle);
+		if (free_context) {
+			libusb_exit(context);
+		}
 		return NULL;
 	}
 	if (config->bNumInterfaces != 1) {
 		fprintf(stderr, "Need exactly one interface, got %d\n", config->bNumInterfaces);
 		libusb_free_config_descriptor(config);
 		libusb_close(handle);
+		if (free_context) {
+			libusb_exit(context);
+		}
 		return NULL;
 	}
 	if (config->interface[0].num_altsetting != 1) {
 		fprintf(stderr, "Need exactly one altsetting, got %d\n", config->interface[0].num_altsetting);
 		libusb_free_config_descriptor(config);
 		libusb_close(handle);
+		if (free_context) {
+			libusb_exit(context);
+		}
 		return NULL;
 	}
 	if (config->interface[0].altsetting[0].bNumEndpoints != 2) {
 		fprintf(stderr, "Need exactly two endpoints, got %d\n", config->interface[0].altsetting[0].bNumEndpoints);
 		libusb_free_config_descriptor(config);
 		libusb_close(handle);
+		if (free_context) {
+			libusb_exit(context);
+		}
 		return NULL;
 	}
 
@@ -416,6 +431,10 @@ UsbDaliPtr usbdali_open(libusb_context *context) {
 	err = libusb_kernel_driver_active(handle, 0);
 	if (err < LIBUSB_SUCCESS) {
 		fprintf(stderr, "Error getting interface active state: %s\n", libusb_error_string(err));
+		libusb_close(handle);
+		if (free_context) {
+			libusb_exit(context);
+		}
 		return NULL;
 	}
 	if (err == 1) {
@@ -430,6 +449,9 @@ UsbDaliPtr usbdali_open(libusb_context *context) {
 	if (err != LIBUSB_SUCCESS) {
 		fprintf(stderr, "Error setting configuration: %s\n", libusb_error_string(err));
 		libusb_close(handle);
+		if (free_context) {
+			libusb_exit(context);
+		}
 		return NULL;
 	}
 
@@ -441,6 +463,9 @@ UsbDaliPtr usbdali_open(libusb_context *context) {
 			fprintf(stderr, "Error reattaching interface: %s\n", libusb_error_string(err));
 		}
 		libusb_close(handle);
+		if (free_context) {
+			libusb_exit(context);
+		}
 		return NULL;
 	}
 	
@@ -453,6 +478,9 @@ UsbDaliPtr usbdali_open(libusb_context *context) {
 			fprintf(stderr, "Error reattaching interface: %s\n", libusb_error_string(err));
 		}
 		libusb_close(handle);
+		if (free_context) {
+			libusb_exit(context);
+		}
 		return NULL;
 	}
 	
@@ -469,6 +497,9 @@ UsbDaliPtr usbdali_open(libusb_context *context) {
 			fprintf(stderr, "Error reattaching interface: %s\n", libusb_error_string(err));
 		}
 		libusb_close(handle);
+		if (free_context) {
+			libusb_exit(context);
+		}
 		return NULL;
 	}
 	
@@ -481,6 +512,9 @@ UsbDaliPtr usbdali_open(libusb_context *context) {
 			fprintf(stderr, "Error reattaching interface: %s\n", libusb_error_string(err));
 		}
 		libusb_close(handle);
+		if (free_context) {
+			libusb_exit(context);
+		}
 		return NULL;
 	}
 
@@ -538,6 +572,9 @@ void usbdali_close(UsbDaliPtr dali) {
 		libusb_close(dali->handle);
 
 		if (dali->free_context) {
+			if (dali->debug) {
+				printf("Freeing libusb context\n");
+			}
 			libusb_exit(dali->context);
 		}
 		
