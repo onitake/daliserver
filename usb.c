@@ -366,187 +366,132 @@ UsbDaliPtr usbdali_open(libusb_context *context) {
 	}
 
 	libusb_device_handle *handle = libusb_open_device_with_vid_pid(context, VENDOR_ID, PRODUCT_ID);
-	if (!handle) {
-		fprintf(stderr, "Can't find USB device\n");
-		if (free_context) {
-			libusb_exit(context);
-		}
-		return NULL;
-	}
-	
-	libusb_device *device = libusb_get_device(handle);
-	
-	struct libusb_config_descriptor *config = NULL;
-	int err = libusb_get_config_descriptor_by_value(device, CONFIGURATION_VALUE, &config);
-	if (err != LIBUSB_SUCCESS) {
-		fprintf(stderr, "Error getting configuration descriptor: %s\n", libusb_error_string(err));
-		libusb_close(handle);
-		if (free_context) {
-			libusb_exit(context);
-		}
-		return NULL;
-	}
-	if (config->bNumInterfaces != 1) {
-		fprintf(stderr, "Need exactly one interface, got %d\n", config->bNumInterfaces);
-		libusb_free_config_descriptor(config);
-		libusb_close(handle);
-		if (free_context) {
-			libusb_exit(context);
-		}
-		return NULL;
-	}
-	if (config->interface[0].num_altsetting != 1) {
-		fprintf(stderr, "Need exactly one altsetting, got %d\n", config->interface[0].num_altsetting);
-		libusb_free_config_descriptor(config);
-		libusb_close(handle);
-		if (free_context) {
-			libusb_exit(context);
-		}
-		return NULL;
-	}
-	if (config->interface[0].altsetting[0].bNumEndpoints != 2) {
-		fprintf(stderr, "Need exactly two endpoints, got %d\n", config->interface[0].altsetting[0].bNumEndpoints);
-		libusb_free_config_descriptor(config);
-		libusb_close(handle);
-		if (free_context) {
-			libusb_exit(context);
-		}
-		return NULL;
-	}
+	if (handle) {
+		libusb_device *device = libusb_get_device(handle);
 
-	unsigned char endpoint_in;
-	unsigned char endpoint_out;
-	if ((config->interface[0].altsetting[0].endpoint[0].bEndpointAddress & LIBUSB_ENDPOINT_DIR_MASK) == LIBUSB_ENDPOINT_IN) {
-		endpoint_in = config->interface[0].altsetting[0].endpoint[0].bEndpointAddress;
-		endpoint_out = config->interface[0].altsetting[0].endpoint[1].bEndpointAddress;
+		struct libusb_config_descriptor *config = NULL;
+		int err = libusb_get_config_descriptor_by_value(device, CONFIGURATION_VALUE, &config);
+		if (err == LIBUSB_SUCCESS) {
+			if (config->bNumInterfaces == 1) {
+				if (config->interface[0].num_altsetting == 1) {
+					if (config->interface[0].altsetting[0].bNumEndpoints == 2) {
+						unsigned char endpoint_in;
+						unsigned char endpoint_out;
+						if ((config->interface[0].altsetting[0].endpoint[0].bEndpointAddress & LIBUSB_ENDPOINT_DIR_MASK) == LIBUSB_ENDPOINT_IN) {
+							endpoint_in = config->interface[0].altsetting[0].endpoint[0].bEndpointAddress;
+							endpoint_out = config->interface[0].altsetting[0].endpoint[1].bEndpointAddress;
+						} else {
+							endpoint_out = config->interface[0].altsetting[0].endpoint[0].bEndpointAddress;
+							endpoint_in = config->interface[0].altsetting[0].endpoint[1].bEndpointAddress;
+						}
+						printf("Input endpoint: 0x%02x\n", endpoint_in);
+						printf("Output endpoint: 0x%02x\n", endpoint_out);
+
+						libusb_free_config_descriptor(config);
+
+						err = libusb_kernel_driver_active(handle, 0);
+						if (err >= LIBUSB_SUCCESS) {
+							if (err == 1) {
+								printf("Kernel driver is active, trying to detach\n");
+								err = libusb_detach_kernel_driver(handle, 0);
+								if (err != LIBUSB_SUCCESS) {
+									fprintf(stderr, "Error detaching interface from kernel: %s\n", libusb_error_string(err));
+								}
+							}
+
+							err = libusb_set_configuration(handle, CONFIGURATION_VALUE);
+							if (err == LIBUSB_SUCCESS) {
+								err = libusb_claim_interface(handle, 0);
+								if (err == LIBUSB_SUCCESS) {
+									err = libusb_set_interface_alt_setting(handle, 0, 0);
+									if (err == LIBUSB_SUCCESS) {
+										ArrayPtr pollfds = array_new(sizeof(struct pollfd));
+										const struct libusb_pollfd **usbfds = libusb_get_pollfds(context);
+										if (pollfds && usbfds) {
+											UsbDaliPtr dali = malloc(sizeof(struct UsbDali));
+											if (dali) {
+												dali->context = context;
+												dali->free_context = free_context;
+												dali->handle = handle;
+												dali->endpoint_in = endpoint_in;
+												dali->endpoint_out = endpoint_out;
+												dali->cmd_timeout = DEFAULT_COMMAND_TIMEOUT;
+												dali->handle_timeout = DEFAULT_HANDLER_TIMEOUT;
+												dali->recv_transfer = NULL;
+												dali->send_transfer = NULL;
+												dali->queue_size = DEFAULT_QUEUESIZE;
+												dali->queue = list_new((ListDataFreeFunc) usbdali_transfer_free);
+												dali->seq_num = 1;
+												dali->bcast_callback = NULL;
+												dali->req_callback = NULL;
+												dali->event_callback = NULL;
+												dali->bcast_arg = NULL;
+												dali->event_arg = NULL;
+												dali->debug = 0;
+												dali->pollfds = pollfds;
+												dali->event_index = -1;
+
+												size_t i;
+												for (i = 0; usbfds[i]; i++) {
+													usbdali_add_pollfd(usbfds[i]->fd, usbfds[i]->events, dali);
+												}
+												free(usbfds);
+												libusb_set_pollfd_notifiers(context, usbdali_add_pollfd, usbdali_remove_pollfd, dali);
+
+												return dali;
+											} else {
+												fprintf(stderr, "Can't allocate device structure\n");
+											}
+										} else {
+											fprintf(stderr, "Error creating dynamic array for poll fds, possibly out of memory\n");
+										}
+										if (pollfds) {
+											array_free(pollfds);
+										}
+										if (usbfds) {
+											free(usbfds);
+										}
+									} else {
+										fprintf(stderr, "Error assigning altsetting: %s\n", libusb_error_string(err));
+									}
+									libusb_release_interface(handle, 0);
+								} else {
+									fprintf(stderr, "Error claiming interface: %s\n", libusb_error_string(err));
+								}
+							} else {
+								fprintf(stderr, "Error setting configuration: %s\n", libusb_error_string(err));
+							}
+							err = libusb_attach_kernel_driver(handle, 0);
+							if (err != LIBUSB_SUCCESS) {
+								fprintf(stderr, "Error reattaching interface: %s\n", libusb_error_string(err));
+							}
+						} else {
+							fprintf(stderr, "Error getting interface active state: %s\n", libusb_error_string(err));
+						}
+					} else {
+						fprintf(stderr, "Need exactly two endpoints, got %d\n", config->interface[0].altsetting[0].bNumEndpoints);
+					}
+				} else {
+					fprintf(stderr, "Need exactly one altsetting, got %d\n", config->interface[0].num_altsetting);
+				}
+			} else {
+				fprintf(stderr, "Need exactly one interface, got %d\n", config->bNumInterfaces);
+			}
+
+			libusb_free_config_descriptor(config);
+		} else {
+			fprintf(stderr, "Error getting configuration descriptor: %s\n", libusb_error_string(err));
+		}
+
+		libusb_close(handle);
 	} else {
-		endpoint_out = config->interface[0].altsetting[0].endpoint[0].bEndpointAddress;
-		endpoint_in = config->interface[0].altsetting[0].endpoint[1].bEndpointAddress;
-	}
-	printf("Input endpoint: 0x%02x\n", endpoint_in);
-	printf("Output endpoint: 0x%02x\n", endpoint_out);
-
-	libusb_free_config_descriptor(config);
-	
-	err = libusb_kernel_driver_active(handle, 0);
-	if (err < LIBUSB_SUCCESS) {
-		fprintf(stderr, "Error getting interface active state: %s\n", libusb_error_string(err));
-		libusb_close(handle);
-		if (free_context) {
-			libusb_exit(context);
-		}
-		return NULL;
-	}
-	if (err == 1) {
-		printf("Kernel driver is active, trying to detach\n");
-		err = libusb_detach_kernel_driver(handle, 0);
-		if (err != LIBUSB_SUCCESS) {
-			fprintf(stderr, "Error detaching interface from kernel: %s\n", libusb_error_string(err));
-		}
-	}
-	
-	err = libusb_set_configuration(handle, CONFIGURATION_VALUE);
-	if (err != LIBUSB_SUCCESS) {
-		fprintf(stderr, "Error setting configuration: %s\n", libusb_error_string(err));
-		libusb_close(handle);
-		if (free_context) {
-			libusb_exit(context);
-		}
-		return NULL;
+		fprintf(stderr, "Can't find USB device\n");
 	}
 
-	err = libusb_claim_interface(handle, 0);
-	if (err != LIBUSB_SUCCESS) {
-		fprintf(stderr, "Error claiming interface: %s\n", libusb_error_string(err));
-		err = libusb_attach_kernel_driver(handle, 0);	
-		if (err != LIBUSB_SUCCESS) {
-			fprintf(stderr, "Error reattaching interface: %s\n", libusb_error_string(err));
-		}
-		libusb_close(handle);
-		if (free_context) {
-			libusb_exit(context);
-		}
-		return NULL;
+	if (free_context) {
+		libusb_exit(context);
 	}
-	
-	err = libusb_set_interface_alt_setting(handle, 0, 0);
-	if (err != LIBUSB_SUCCESS) {
-		fprintf(stderr, "Error assigning altsetting: %s\n", libusb_error_string(err));
-		libusb_release_interface(handle, 0);
-		err = libusb_attach_kernel_driver(handle, 0);	
-		if (err != LIBUSB_SUCCESS) {
-			fprintf(stderr, "Error reattaching interface: %s\n", libusb_error_string(err));
-		}
-		libusb_close(handle);
-		if (free_context) {
-			libusb_exit(context);
-		}
-		return NULL;
-	}
-	
-	ArrayPtr pollfds = array_new(sizeof(struct pollfd));
-	const struct libusb_pollfd **usbfds = libusb_get_pollfds(context);
-	if (!pollfds || !usbfds) {
-		fprintf(stderr, "Error creating dynamic array for poll fds, possibly out of memory\n");
-		if (pollfds) {
-			array_free(pollfds);
-		}
-		libusb_release_interface(handle, 0);
-		err = libusb_attach_kernel_driver(handle, 0);	
-		if (err != LIBUSB_SUCCESS) {
-			fprintf(stderr, "Error reattaching interface: %s\n", libusb_error_string(err));
-		}
-		libusb_close(handle);
-		if (free_context) {
-			libusb_exit(context);
-		}
-		return NULL;
-	}
-	
-	UsbDaliPtr dali = malloc(sizeof(struct UsbDali));
-	if (!dali) {
-		fprintf(stderr, "Can't allocate device structure\n");
-		libusb_release_interface(handle, 0);
-		err = libusb_attach_kernel_driver(handle, 0);	
-		if (err != LIBUSB_SUCCESS) {
-			fprintf(stderr, "Error reattaching interface: %s\n", libusb_error_string(err));
-		}
-		libusb_close(handle);
-		if (free_context) {
-			libusb_exit(context);
-		}
-		return NULL;
-	}
-
-	dali->context = context;
-	dali->free_context = free_context;
-	dali->handle = handle;
-	dali->endpoint_in = endpoint_in;
-	dali->endpoint_out = endpoint_out;
-	dali->cmd_timeout = DEFAULT_COMMAND_TIMEOUT;
-	dali->handle_timeout = DEFAULT_HANDLER_TIMEOUT;
-	dali->recv_transfer = NULL;
-	dali->send_transfer = NULL;
-	dali->queue_size = DEFAULT_QUEUESIZE;
-	dali->queue = list_new((ListDataFreeFunc) usbdali_transfer_free);
-	dali->seq_num = 1;
-	dali->bcast_callback = NULL;
-	dali->req_callback = NULL;
-	dali->event_callback = NULL;
-	dali->bcast_arg = NULL;
-	dali->event_arg = NULL;
-	dali->debug = 0;
-	dali->pollfds = pollfds;
-	dali->event_index = -1;
-	
-	size_t i;
-	for (i = 0; usbfds[i]; i++) {
-		usbdali_add_pollfd(usbfds[i]->fd, usbfds[i]->events, dali);
-	}
-	free(usbfds);
-	libusb_set_pollfd_notifiers(context, usbdali_add_pollfd, usbdali_remove_pollfd, dali);
-	
-	return dali;
+	return NULL;
 }
 
 void usbdali_close(UsbDaliPtr dali) {
