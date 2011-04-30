@@ -6,6 +6,8 @@ LD = gcc
 #DEFINES += -DUSB_OFF
 # Uncomment to enable USB communication in a separate thread
 DEFINES += -DUSB_THREAD
+# Uncomment to enable additional debugging messages
+#DEFINES += -DUSB_DEBUG
 CFLAGS = -O0 -g $(shell pkg-config --cflags libusb-1.0) $(DEFINES)
 LIBS = $(shell pkg-config --libs libusb-1.0) -lpthread
 

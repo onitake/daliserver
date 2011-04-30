@@ -257,7 +257,9 @@ UsbPtr usb_new(ServerPtr server) {
 #ifndef USB_OFF
 		ret->dali = usbdali_open(NULL);
 		if (ret->dali) {
+#ifdef USB_DEBUG
 			usbdali_set_debug(ret->dali, 1);
+#endif
 			usbdali_set_inband_callback(ret->dali, dali_inband_callback);
 			usbdali_set_outband_callback(ret->dali, dali_outband_callback, ret);
 			usbdali_set_event_callback(ret->dali, ret->server->ipc->sockets[0], dali_event_callback, ret);
