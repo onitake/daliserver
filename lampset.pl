@@ -27,5 +27,5 @@ if ($dim > 254) {
 
 my $dali = usbdali->new('localhost');
 $dali->connect() || die;
-$dali->send($dali->make_dim('lamp', $lamp, $level));
+$dali->send($dali->make_dim('lamp', $lamp, $dim));
 $dali->disconnect();
