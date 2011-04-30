@@ -1,0 +1,98 @@
+0. Contents
+-----------
+
+1. About
+2. Quickstart
+3. Communication Protocol
+4. Authors
+5. References
+
+1. About
+--------
+
+DALI (Digital Addressable Lighting Interface) is bus-based lamp control sytem,
+standardized by the DALI working group (DALI-AG), a subsidiary of the German
+ZVEI (Zentralverband Elektrotechnik- und Elektronikindustrie e.V.).
+It allows a wide range of lighting control applications, such as switching
+lamps in groups, automatic leveling in response to daylight intensity,
+integration into home-automation system.
+
+daliserver is a command multiplexing server for the Tridonic DALI USB adapter,
+allowing access to a DALI bus from any USB-equipped computer running a POSIX
+and libusb compatible operating system.
+
+2. Quickstart
+-------------
+
+If you got daliserver in binary form, you can skip the next section and go
+straight to "Running daliserver".
+
+To compile daliserver, you need GNU make, a C99 compliant C compiler,
+libusb 1.x, libpthread, and associated development packages.
+For Debian, this is roughly: build-essential, libusb-1.0-0, libusb-1.0-0-dev
+
+The accompanying Makefile is designed for use with gcc, but any other suitable
+can be used by changing the lines starting with "CC =" and "LD =".
+If you need special options for pthread support or different C flags or library
+paths for libusb, change the "CFGLAGS =" and "LIBS =" lines.
+On Microsoft Windows, you might need to add a .exe extension to the daliserver
+target, or it won't be executable.
+
+Then, just type
+make
+
+This should produce the daliserver binary.
+
+Running daliserver:
+It doesn't accept any command line options, just run it from a terminal to see
+its debugging output. If you want more verbose debug messages, uncomment the
+corresponding line in the Makefile.
+
+usbdali.pm is a Perl module that can handle construction of DALI messages and
+communication with the daliserver. Some examples are provided:
+alloff.pl - Sends a turn off broadcast message
+allon.pl - Sends a turn on broadcast message, but no light level (lamps might
+still be at 0 after sending this)
+allset.pl - Sends a lamp level broadcast message
+lampoff.pl - Sends a turn off command to a specific lamp
+lampset.pl - Sends a level to a specific lamp
+
+3. Communication protocol
+-------------------------
+
+To communicate with daliserver, you need to connect to it first.
+It listens on localhost (IPv4 only) on TCP port 55825 (0xDA11).
+
+The protocol is simple, only two bytes are required: the bus address and the
+command code. Note however that DALI uses a specific encoding scheme, the
+address field is used for other purposes.
+
+When not issuing commands, you can listen for messages from other devices
+captured on the bus. These message will come in the form:
+  address:uint8_t
+  command:uint8_t
+
+To enque a command to be transmitted on the bus, just send this:
+  address:uint8_t
+  command:uint8_t
+
+A response containing the status code from the target device will be sent back:
+  status:uint8_t
+  0:uint8_t
+
+There is no other padding, all messages have a fixed size of 2 bytes.
+
+eDALI commands aren't supported for now.
+
+4. Authors
+----------
+
+Gregor Riepl <onitake@gmail.com>
+Johannes <johannes@deragent.net>
+
+5. References
+-------------
+
+http://www.dali-ag.org - DALI working group homepage
+IEC 62386 - The official standard (requires fee)
+
