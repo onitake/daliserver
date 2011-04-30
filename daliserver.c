@@ -98,10 +98,6 @@ enum {
 	IPC_EQUEUE = 4,
 };
 
-const struct DaliFrame ALL_OFF = { 0xff, 0x00, };
-const struct DaliFrame ALL_ON = { 0xff, 0x08, };
-const struct DaliFrame ALL_DIM = { 0xfe, 0x60, };
-
 // Dequeue this many commands before going back to handling USB events max.
 const unsigned int MAX_DEQUEUE = 10;
 // Handle this many connections max.
@@ -113,7 +109,7 @@ const useconds_t WAIT_CONGEST = 100000;
 // Listen on this port
 const unsigned short NET_PORT = 55825;
 // Bind to this address
-const char *NET_ADDRESS = "0.0.0.0";
+const char *NET_ADDRESS = "127.0.0.1";
 
 struct ThreadReturn {
 	int error;
