@@ -27,29 +27,28 @@ and libusb compatible operating system.
 If you got daliserver in binary form, you can skip the next section and go
 straight to "Running daliserver".
 
-To compile daliserver, you need GNU make, a C99 compliant C compiler,
-libusb 1.x, libpthread, and associated development packages.
+To compile daliserver, you need GNU autotools, a C99 compliant C compiler
+with thread support, libusb 1.x, and associated development packages.
 For Debian, this is roughly: build-essential, libusb-1.0-0, libusb-1.0-0-dev
 
-The accompanying Makefile is designed for use with gcc, but any other suitable
-can be used by changing the lines starting with "CC =" and "LD =".
-If you need special options for pthread support or different C flags or library
-paths for libusb, change the "CFGLAGS =" and "LIBS =" lines.
-On Microsoft Windows, you might need to add a .exe extension to the daliserver
-target, or it won't be executable.
-
-Then, just type
+To generate the configure script and makefile templates, run
+autoreconf
+This should complete without error. If it doesn't, make sure all development
+packages are installed.
+Then run
+./configure
+Followed by
 make
-
-This should produce the daliserver binary.
+This should produce the daliserver binary in src/.
 
 Running daliserver:
-It doesn't accept any command line options, just run it from a terminal to see
+No command line options are accepted, just run it from a terminal to see
 its debugging output. If you want more verbose debug messages, uncomment the
 corresponding line in the Makefile.
 
+Then have a look in the perl/ subdirectory for example Perl scripts.
 usbdali.pm is a Perl module that can handle construction of DALI messages and
-communication with the daliserver. Some examples are provided:
+communication with the daliserver. Some examples are provided too:
 alloff.pl - Sends a turn off broadcast message
 allon.pl - Sends a turn on broadcast message, but no light level (lamps might
 still be at 0 after sending this)
