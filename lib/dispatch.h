@@ -30,21 +30,40 @@
 
 typedef enum {
 	DISPATCH_FD_CLOSED = -1,
+	DISPATCH_POLL_ERROR = -2
 } DispatchError;
 
+// Callback function pointer to input handler routine
 typedef void (*DispatchReadyFunc)(void *arg);
+// Callback function pointer to error handler routine
 typedef void (*DispatchErrorFunc)(void *arg, DispatchError err);
+// Callback function pointer to update queue entry index
 typedef void (*DispatchIndexFunc)(void *arg, size_t index);
 
 struct Dispatch;
 typedef struct Dispatch *DispatchPtr;
 
+// Create a new dispatch queue
 DispatchPtr dispatch_new();
+// Destroy a dispatch queue
 void dispatch_free(DispatchPtr table);
-void dispatch_run(DispatchPtr table);
+// Wait for I/O events on all the file descriptors in the dispatch queue
+// Returns 1 if a timeout occured, 2 if events were handled and 0 if there was an error
+int dispatch_run(DispatchPtr table);
+// Set the wait timeout in msecs
 void dispatch_set_timeout(DispatchPtr table, int timeout);
 
-void dispatch_add(DispatchPtr table, int fd, DispatchReadyFunc readyfn, DispatchErrorFunc errorfn, DispatchIndexFunc indexfn, void *arg);
+// Add a file descriptor to the dispatch queue
+// fd must be a valid file descriptor
+// events is a flag mask for poll(), if events is -1, POLLIN will be used
+// Any or all of the function pointers may be NULL, in which case no action will be taken upon receiving an event
+// arg is the first argument passed to the callbacks
+void dispatch_add(DispatchPtr table, int fd, short events, DispatchReadyFunc readyfn, DispatchErrorFunc errorfn, DispatchIndexFunc indexfn, void *arg);
+// Remove a file descriptor from the queue
+// This may take linear time as the queue is search first
+void dispatch_remove_fd(DispatchPtr table, int fd);
+// Remove entry number 'index' from the queue
+// Takes constant time
 void dispatch_remove(DispatchPtr table, size_t index);
 
 #endif /*_DISPATCH_H*/

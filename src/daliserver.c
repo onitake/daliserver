@@ -37,6 +37,7 @@
 #include "util.h"
 #include "usb.h"
 #include "ipc.h"
+#include "dispatch.h"
 
 // Network protocol:
 // BusMessage {
@@ -51,6 +52,51 @@
 //     status:uint8_t
 //     0:uint8_t
 // }
+
+static IpcPtr killsocket;
+static int running;
+
+static void signal_handler(int sig) {
+	if (running) {
+		fprintf(stderr, "Signal received, shutting down\n");
+		running = 0;
+		uint8_t dummy = 0;
+		ssize_t wrbytes = write(killsocket->sockets[1], &dummy, sizeof(dummy));
+	} else {
+		fprintf(stderr, "Another signal received, killing process\n");
+		kill(getpid(), SIGKILL);
+	}
+}
+
+int main(int argc, const char **argv) {
+	DispatchPtr dispatch = dispatch_new();
+	if (!dispatch) {
+		return -1;
+	}
+	UsbDaliPtr usb = usbdali_open(NULL, dispatch);
+	if (!usb) {
+		return -1;
+	}
+	killsocket = ipc_new();
+	if (!killsocket) {
+		return -1;
+	}
+	dispatch_add(dispatch, killsocket->sockets[0], -1, NULL, NULL, NULL, NULL);
+
+	running = 1;
+	signal(SIGTERM, signal_handler);
+	signal(SIGINT, signal_handler);
+	while (running && dispatch_run(dispatch));
+
+	dispatch_remove_fd(dispatch, killsocket->sockets[0]);
+	ipc_free(killsocket);
+	usbdali_close(usb);
+	dispatch_free(dispatch);
+
+	return 0;
+}
+
+#if 0
 
 // IPC protocol:
 // NetToUsb {
@@ -774,3 +820,6 @@ int main(int argc, const char **argv) {
 	
 	return 0;
 }
+
+#endif
+

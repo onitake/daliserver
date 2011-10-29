@@ -42,6 +42,7 @@ typedef struct {
 
 struct UsbDali {
 	libusb_context *context;
+	DispatchPtr dispatch;
 	int free_context;
 	libusb_device_handle *handle;
 	unsigned char endpoint_in;
@@ -60,7 +61,6 @@ struct UsbDali {
 	void *bcast_arg;
 	void *event_arg;
 	int debug;
-	ArrayPtr pollfds;
 	ssize_t event_index;
 };
 
@@ -134,28 +134,22 @@ const int CONFIGURATION_VALUE = 1;
 const size_t USBDALI_LENGTH = 64;
 const unsigned int DEFAULT_HANDLER_TIMEOUT = 100; //msec
 const unsigned int DEFAULT_COMMAND_TIMEOUT = 1000; //msec
-const unsigned int DEFAULT_QUEUESIZE = 50; //max. queued commands
+const unsigned int DEFAULT_QUEUESIZE = 255; //max. queued commands
 const unsigned int MAX_LIBUSB_TIMEOUT = 1000; //sec
 
-UsbDaliTransfer *usbdali_transfer_new(DaliFramePtr request, void *arg) {
-	UsbDaliTransfer *ret = malloc(sizeof(UsbDaliTransfer));
-	if (ret) {
-		memset(ret, 0, sizeof(UsbDaliTransfer));
-		ret->request = request;
-		ret->arg = arg;
-	}
-	return ret;
-}
-
-void usbdali_transfer_free(UsbDaliTransfer *transfer) {
-	if (transfer) {
-		/*if (transfer->transfer) {
-			libusb_cancel_transfer(transfer->transfer);
-		}*/
-		daliframe_free(transfer->request);
-		free(transfer);
-	}
-}
+static UsbDaliTransfer *usbdali_transfer_new(DaliFramePtr request, void *arg);
+static void usbdali_transfer_free(UsbDaliTransfer *transfer);
+static void usbdali_print_in(uint8_t *buffer, size_t buflen);
+static void usbdali_print_out(uint8_t *buffer, size_t buflen);
+static void usbdali_dispatch_ready(void *arg);
+static void usbdali_dispatch_error(void *arg, DispatchError err);
+static void usbdali_add_pollfd(int fd, short events, void *user_data);
+static void usbdali_remove_pollfd(int fd, void *user_data);
+static void usbdali_next(UsbDaliPtr dali);
+static void usbdali_receive_callback(struct libusb_transfer *transfer);
+static int usbdali_receive(UsbDaliPtr dali);
+static void usbdali_send_callback(struct libusb_transfer *transfer);
+static int usbdali_send(UsbDaliPtr dali, UsbDaliTransfer *transfer);
 
 const char *libusb_error_string(int error) {
 	switch (error) {
@@ -238,7 +232,7 @@ const char *usbdali_error_string(UsbDaliError error) {
 	}
 }
 
-void usbdali_print_in(uint8_t *buffer, size_t buflen) {
+static void usbdali_print_in(uint8_t *buffer, size_t buflen) {
 	if (buffer && buflen >= 9) {
 		switch (buffer[0]) {
 			case USBDALI_DIRECTION_DALI:
@@ -295,7 +289,7 @@ void usbdali_print_in(uint8_t *buffer, size_t buflen) {
 	}
 }
 
-void usbdali_print_out(uint8_t *buffer, size_t buflen) {
+static void usbdali_print_out(uint8_t *buffer, size_t buflen) {
 	if (buffer && buflen >= 8) {
 		switch (buffer[0]) {
 			case USBDALI_DIRECTION_DALI:
@@ -329,30 +323,44 @@ void usbdali_print_out(uint8_t *buffer, size_t buflen) {
 	}
 }
 
+static void usbdali_dispatch_ready(void *arg) {
+	UsbDaliPtr dali = (UsbDaliPtr) arg;
+	if (dali) {
+		struct timeval tv = { 0, 0 };
+		int err = libusb_handle_events_timeout(dali->context, &tv);
+		if (err != LIBUSB_SUCCESS) {
+			fprintf(stderr, "Error handling USB events: %s\n", libusb_error_string(err));
+		}
+	}
+}
+
+static void usbdali_dispatch_error(void *arg, DispatchError err) {
+	UsbDaliPtr dali = (UsbDaliPtr) arg;
+	if (dali) {
+		fprintf(stderr, "Dispatch queue reported error %d\n", err);
+	}
+}
+
 static void usbdali_add_pollfd(int fd, short events, void *user_data) {
 	UsbDaliPtr dali = (UsbDaliPtr) user_data;
 	if (dali) {
-		struct pollfd pfd;
-		pfd.fd = fd;
-		pfd.events = events;
-		pfd.revents = 0;
-		array_append(dali->pollfds, &pfd);
+		dispatch_add(dali->dispatch, fd, events, usbdali_dispatch_ready, usbdali_dispatch_error, NULL, dali);
 	}
 }
 
 static void usbdali_remove_pollfd(int fd, void *user_data) {
 	UsbDaliPtr dali = (UsbDaliPtr) user_data;
 	if (dali) {
-		size_t i;
-		for (i = 0; i < array_length(dali->pollfds); i++) {
-			if (((struct pollfd *) array_get(dali->pollfds, i))->fd == fd) {
-				array_remove(dali->pollfds, i);
-			}
-		}
+		dispatch_remove_fd(dali->dispatch, fd);
 	}
 }
 
-UsbDaliPtr usbdali_open(libusb_context *context) {
+UsbDaliPtr usbdali_open(libusb_context *context, DispatchPtr dispatch) {
+	if (!dispatch) {
+		fprintf(stderr, "No dispatch queue specified\n");
+		return NULL;
+	}
+		
 	int free_context;
 	if (!context) {
 		free_context = 1;
@@ -411,6 +419,7 @@ UsbDaliPtr usbdali_open(libusb_context *context) {
 											UsbDaliPtr dali = malloc(sizeof(struct UsbDali));
 											if (dali) {
 												dali->context = context;
+												dali->dispatch = dispatch;
 												dali->free_context = free_context;
 												dali->handle = handle;
 												dali->endpoint_in = endpoint_in;
@@ -421,14 +430,13 @@ UsbDaliPtr usbdali_open(libusb_context *context) {
 												dali->send_transfer = NULL;
 												dali->queue_size = DEFAULT_QUEUESIZE;
 												dali->queue = list_new((ListDataFreeFunc) usbdali_transfer_free);
-												dali->seq_num = 1;
+												dali->seq_num = 0;
 												dali->bcast_callback = NULL;
 												dali->req_callback = NULL;
 												dali->event_callback = NULL;
 												dali->bcast_arg = NULL;
 												dali->event_arg = NULL;
 												dali->debug = 0;
-												dali->pollfds = pollfds;
 												dali->event_index = -1;
 
 												size_t i;
@@ -437,6 +445,8 @@ UsbDaliPtr usbdali_open(libusb_context *context) {
 												}
 												free(usbfds);
 												libusb_set_pollfd_notifiers(context, usbdali_add_pollfd, usbdali_remove_pollfd, dali);
+
+												usbdali_next(dali);
 
 												return dali;
 											} else {
@@ -496,8 +506,6 @@ UsbDaliPtr usbdali_open(libusb_context *context) {
 
 void usbdali_close(UsbDaliPtr dali) {
 	if (dali) {
-		array_free(dali->pollfds);
-		
 		list_free(dali->queue);
 		
 		usbdali_transfer_free(dali->send_transfer);
@@ -524,6 +532,31 @@ void usbdali_close(UsbDaliPtr dali) {
 		}
 		
 		free(dali);
+	}
+}
+
+static void usbdali_next(UsbDaliPtr dali) {
+	if (dali->debug) {
+		printf("Handling requests\n");
+	}
+	if (!dali->send_transfer) {
+		if (dali->debug) {
+			printf("No send transfer active\n");
+		}
+		UsbDaliTransfer *transfer = list_dequeue(dali->queue);
+		if (transfer) {
+			if (dali->debug) {
+				printf("Dequeued transfer\n");
+			}
+			usbdali_send(dali, transfer);
+		} else {
+			if (!dali->recv_transfer) {
+				if (dali->debug) {
+					printf("No receive transfer active\n");
+				}
+				usbdali_receive(dali);
+			}
+		}
 	}
 }
 
@@ -640,6 +673,8 @@ static void usbdali_receive_callback(struct libusb_transfer *transfer) {
 
 	free(transfer->buffer);
 	libusb_free_transfer(transfer);
+
+	usbdali_next(dali);
 }
 
 static int usbdali_receive(UsbDaliPtr dali) {
@@ -668,7 +703,7 @@ static void usbdali_send_callback(struct libusb_transfer *transfer) {
 
 	switch (transfer->status) {
 		case LIBUSB_TRANSFER_COMPLETED:
-			usbdali_receive(dali);
+			// ok
 			break;
 		case LIBUSB_TRANSFER_TIMED_OUT:
 			dali->req_callback(USBDALI_SEND_TIMEOUT, dali->send_transfer->request, 0xffff, dali->send_transfer->arg);
@@ -689,6 +724,8 @@ static void usbdali_send_callback(struct libusb_transfer *transfer) {
 	}
 	
 	libusb_free_transfer(transfer);
+
+	usbdali_next(dali);
 }
 
 static int usbdali_send(UsbDaliPtr dali, UsbDaliTransfer *transfer) {
@@ -721,7 +758,7 @@ static int usbdali_send(UsbDaliPtr dali, UsbDaliTransfer *transfer) {
 		dali->send_transfer = transfer;
 		dali->send_transfer->seq_num = dali->seq_num;
 		if (dali->seq_num == 0xff) {
-			dali->seq_num = 1;
+			dali->seq_num = 0;
 		} else {
 			dali->seq_num++;
 		}
@@ -740,12 +777,12 @@ UsbDaliError usbdali_queue(UsbDaliPtr dali, DaliFramePtr frame, void *cbarg) {
 		if (list_length(dali->queue) < dali->queue_size) {
 			UsbDaliTransfer *transfer = usbdali_transfer_new(frame, cbarg);
 			if (transfer) {
+				list_enqueue(dali->queue, transfer);
 				if (dali->debug) {
 					printf("Enqueued transfer (%p,%p)\n", transfer->request, transfer->arg);
 				}
-				list_enqueue(dali->queue, transfer);
-				return usbdali_handle(dali);
-				//return USBDALI_SUCCESS;
+				usbdali_next(dali);
+				return USBDALI_SUCCESS;
 			}
 		}
 		return USBDALI_QUEUE_FULL;
@@ -753,7 +790,7 @@ UsbDaliError usbdali_queue(UsbDaliPtr dali, DaliFramePtr frame, void *cbarg) {
 	return USBDALI_INVALID_ARG;
 }
 
-UsbDaliError usbdali_handle(UsbDaliPtr dali) {
+/*UsbDaliError usbdali_handle(UsbDaliPtr dali) {
 	if (dali) {
 		if (dali->debug) {
 			//printf("Handling requests\n");
@@ -815,7 +852,7 @@ UsbDaliError usbdali_handle(UsbDaliPtr dali) {
 		return USBDALI_SUCCESS;
 	}
 	return USBDALI_INVALID_ARG;
-}
+}*/
 
 static void usbdali_set_cmd_timeout(UsbDaliPtr dali, unsigned int timeout) {
 	if (dali) {
@@ -849,7 +886,7 @@ void usbdali_set_inband_callback(UsbDaliPtr dali, UsbDaliInBandCallback callback
 	}
 }
 
-void usbdali_set_event_callback(UsbDaliPtr dali, int fd, UsbDaliEventCallback callback, void *arg) {
+/*void usbdali_set_event_callback(UsbDaliPtr dali, int fd, UsbDaliEventCallback callback, void *arg) {
 	if (dali) {
 		if (dali->event_index >= 0) {
 			array_remove(dali->pollfds, dali->event_index);
@@ -863,36 +900,25 @@ void usbdali_set_event_callback(UsbDaliPtr dali, int fd, UsbDaliEventCallback ca
 			dali->event_index = -1;
 		}
 	}
-}
+}*/
 
-DaliFramePtr daliframe_new(uint8_t address, uint8_t command) {
-	DaliFramePtr frame = malloc(sizeof(struct DaliFrame));
-	memset(frame, 0, sizeof(struct DaliFrame));
-	frame->address = address;
-	frame->command = command;
-	return frame;
-}
-
-DaliFramePtr daliframe_enew(uint8_t ecommand, uint8_t address, uint8_t command) {
-	DaliFramePtr frame = malloc(sizeof(struct DaliFrame));
-	memset(frame, 0, sizeof(struct DaliFrame));
-	frame->ecommand = ecommand;
-	frame->address = address;
-	frame->command = command;
-	return frame;
-}
-
-DaliFramePtr daliframe_clone(DaliFramePtr frame) {
-	DaliFramePtr ret = malloc(sizeof(struct DaliFrame));
-	memset(ret, 0, sizeof(struct DaliFrame));
-	ret->ecommand = frame->ecommand;
-	ret->address = frame->address;
-	ret->command = frame->command;
+static UsbDaliTransfer *usbdali_transfer_new(DaliFramePtr request, void *arg) {
+	UsbDaliTransfer *ret = malloc(sizeof(UsbDaliTransfer));
+	if (ret) {
+		memset(ret, 0, sizeof(UsbDaliTransfer));
+		ret->request = request;
+		ret->arg = arg;
+	}
 	return ret;
 }
 
-void daliframe_free(DaliFramePtr frame) {
-	if (frame) {
-		free(frame);
+static void usbdali_transfer_free(UsbDaliTransfer *transfer) {
+	if (transfer) {
+		/*if (transfer->transfer) {
+			libusb_cancel_transfer(transfer->transfer);
+		}*/
+		daliframe_free(transfer->request);
+		free(transfer);
 	}
 }
+

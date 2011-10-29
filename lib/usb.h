@@ -29,16 +29,11 @@
 #include <libusb.h>
 #include <poll.h>
 #include <sys/types.h>
+#include "frame.h"
+#include "dispatch.h"
 
 struct UsbDali;
 typedef struct UsbDali *UsbDaliPtr;
-
-struct DaliFrame {
-	uint8_t ecommand;
-	uint8_t address;
-	uint8_t command;
-};
-typedef struct DaliFrame *DaliFramePtr;
 
 typedef enum {
 	USBDALI_SUCCESS = 0,
@@ -63,7 +58,8 @@ const char *usbdali_error_string(UsbDaliError error);
 
 // Open the first attached USBDali adapter.
 // Also creates a libusb context if context is NULL.
-UsbDaliPtr usbdali_open(libusb_context *context);
+// The dispatch queue is mandatory
+UsbDaliPtr usbdali_open(libusb_context *context, DispatchPtr dispatch);
 // Stop running transfers and close the device, then finalize the libusb context
 // if it was created by usbdali_open.
 void usbdali_close(UsbDaliPtr dali);
@@ -72,7 +68,7 @@ UsbDaliError usbdali_queue(UsbDaliPtr dali, DaliFramePtr frame, void *cbarg);
 // Handle pending events, submit a receive request if no transfer is active.
 // The handler will block until the handler timeout expires or an I/O event occurs.
 // You should call this in a loop.
-UsbDaliError usbdali_handle(UsbDaliPtr dali);
+//UsbDaliError usbdali_handle(UsbDaliPtr dali);
 // Set the handler timeout (in msec, default 100)
 // 0 is supposed to mean 'forever', but this isn't implemented yet.
 void usbdali_set_handler_timeout(UsbDaliPtr dali, unsigned int timeout);
@@ -87,15 +83,7 @@ void usbdali_set_inband_callback(UsbDaliPtr dali, UsbDaliInBandCallback callback
 // Sets the external event file descriptor and its callback
 // It will be polled for input and error conditions; if an error occured,
 // the callback closed argument will be 1, 0 otherwise.
-void usbdali_set_event_callback(UsbDaliPtr dali, int fd, UsbDaliEventCallback callback, void *arg);
-
-// Allocate a Dali frame
-DaliFramePtr daliframe_new(uint8_t address, uint8_t command);
-DaliFramePtr daliframe_enew(uint8_t ecommand, uint8_t address, uint8_t command);
-// Duplicate a Dali frame
-DaliFramePtr daliframe_clone(DaliFramePtr frame);
-// Deallocate a Dali frame
-void daliframe_free(DaliFramePtr frame);
+//void usbdali_set_event_callback(UsbDaliPtr dali, int fd, UsbDaliEventCallback callback, void *arg);
 
 #endif /*_USB_H*/
 

@@ -65,23 +65,38 @@ void dispatch_free(DispatchPtr table) {
 	}
 }
 
-void dispatch_run(DispatchPtr table) {
-	if (table && table->numentries > 0) {
+int dispatch_run(DispatchPtr table) {
+	if (table) {
 		int ready = poll(table->fds, table->numentries, table->timeout);
 		if (ready == -1) {
 			// error
+			return 0;
 		} else if (ready == 0) {
 			// timeout
+			return 1;
 		} else {
 			size_t i;
 			for (i = 0; i < table->numentries; i++) {
-				if (table->fds[i].revents & POLLIN) {
-					table->entries[i].readyfn(table->entries[i].arg);
+				if (table->fds[i].revents & POLLERR) {
+					if (table->entries[i].errorfn) {
+						table->entries[i].errorfn(table->entries[i].arg, DISPATCH_POLL_ERROR);
+					}
 				}
-				// check for other events
+				if (table->fds[i].revents & POLLHUP) {
+					if (table->entries[i].errorfn) {
+						table->entries[i].errorfn(table->entries[i].arg, DISPATCH_FD_CLOSED);
+					}
+				}
+				if (table->fds[i].revents & POLLIN) {
+					if (table->entries[i].readyfn) {
+						table->entries[i].readyfn(table->entries[i].arg);
+					}
+				}
 			}
+			return 2;
 		}
 	}
+	return 0;
 }
 
 void dispatch_set_timeout(DispatchPtr table, int timeout) {
@@ -90,7 +105,7 @@ void dispatch_set_timeout(DispatchPtr table, int timeout) {
 	}
 }
 
-void dispatch_add(DispatchPtr table, int fd, DispatchReadyFunc readyfn, DispatchErrorFunc errorfn, DispatchIndexFunc indexfn, void *arg) {
+void dispatch_add(DispatchPtr table, int fd, short events, DispatchReadyFunc readyfn, DispatchErrorFunc errorfn, DispatchIndexFunc indexfn, void *arg) {
 	if (table && readyfn && errorfn && indexfn && fd >= 0) {
 		if (table->allocentries < table->numentries + 1) {
 			table->allocentries += DISPATCH_ALLOC_INCREASE;
@@ -104,10 +119,28 @@ void dispatch_add(DispatchPtr table, int fd, DispatchReadyFunc readyfn, Dispatch
 			table->entries[index].errorfn = errorfn;
 			table->entries[index].indexfn = indexfn;
 			table->fds[index].fd = fd;
-			table->fds[index].events = POLLIN;
+			if (events == -1) {
+				table->fds[index].events = POLLIN;
+			} else {
+				table->fds[index].events = events;
+			}
 			table->fds[index].revents = 0;
-			table->entries[index].indexfn(table->entries[index].arg, index);
+			if (table->entries[index].indexfn) {
+				table->entries[index].indexfn(table->entries[index].arg, index);
+			}
 			table->numentries++;
+		}
+	}
+}
+
+void dispatch_remove_fd(DispatchPtr table, int fd) {
+	if (table) {
+		ssize_t i;
+		for (i = 0; i < table->numentries; i++) {
+			if (table->fds[i].fd == fd) {
+				dispatch_remove(table, i);
+				i--;
+			}
 		}
 	}
 }
@@ -122,7 +155,9 @@ void dispatch_remove(DispatchPtr table, size_t index) {
 			table->fds[index].fd = table->fds[table->numentries - 1].fd;
 			table->fds[index].events = table->fds[table->numentries - 1].events;
 			table->fds[index].revents = table->fds[table->numentries - 1].revents;
-			table->entries[index].indexfn(table->entries[index].arg, index);
+			if (table->entries[index].indexfn) {
+				table->entries[index].indexfn(table->entries[index].arg, index);
+			}
 		}
 		table->numentries--;
 	}
