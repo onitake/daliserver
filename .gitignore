@@ -21,3 +21,9 @@ install-sh
 missing
 stamp-h1
 .deps
+dali.config
+dali.creator
+dali.creator.user
+dali.files
+dali.includes
+
