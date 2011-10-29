@@ -24,76 +24,81 @@
  */
 
 #include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
 #include <signal.h>
-#include <errno.h>
-#include <poll.h>
-#include <unistd.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 #include "list.h"
 #include "util.h"
 #include "usb.h"
 #include "ipc.h"
 #include "dispatch.h"
+#include "net.h"
 
-// Network protocol:
-// BusMessage {
-//     address:uint8_t
-//     command:uint8_t
-// }
-// Request {
-//     address:uint8_t
-//     command:uint8_t
-// }
-// Response {
-//     status:uint8_t
-//     0:uint8_t
-// }
+// Listen on this port
+const unsigned short NET_PORT = 55825;
+// Bind to this address
+const char *NET_ADDRESS = "127.0.0.1";
 
 static IpcPtr killsocket;
 static int running;
 
-static void signal_handler(int sig) {
-	if (running) {
-		fprintf(stderr, "Signal received, shutting down\n");
-		running = 0;
-		uint8_t dummy = 0;
-		ssize_t wrbytes = write(killsocket->sockets[1], &dummy, sizeof(dummy));
-	} else {
-		fprintf(stderr, "Another signal received, killing process\n");
-		kill(getpid(), SIGKILL);
-	}
-}
+static void signal_handler(int sig);
+static void dali_outband_handler(UsbDaliError err, DaliFramePtr frame, unsigned int response, void *arg);
+static void dali_inband_handler(UsbDaliError err, DaliFramePtr frame, unsigned int response, void *arg);
 
 int main(int argc, const char **argv) {
 	DispatchPtr dispatch = dispatch_new();
 	if (!dispatch) {
 		return -1;
 	}
+
 	UsbDaliPtr usb = usbdali_open(NULL, dispatch);
 	if (!usb) {
+		//return -1;
+	}
+	usbdali_set_debug(usb, 1);
+	usbdali_set_outband_callback(usb, dali_inband_handler, NULL);
+	usbdali_set_inband_callback(usb, dali_inband_handler);
+
+	ServerPtr server = server_open(dispatch, NET_ADDRESS, NET_PORT);
+	if (!server) {
 		return -1;
 	}
+
 	killsocket = ipc_new();
 	if (!killsocket) {
 		return -1;
 	}
-	dispatch_add(dispatch, killsocket->sockets[0], -1, NULL, NULL, NULL, NULL);
+	ipc_register(killsocket, dispatch);
 
 	running = 1;
 	signal(SIGTERM, signal_handler);
 	signal(SIGINT, signal_handler);
 	while (running && dispatch_run(dispatch));
 
-	dispatch_remove_fd(dispatch, killsocket->sockets[0]);
 	ipc_free(killsocket);
+	server_close(server);
 	usbdali_close(usb);
 	dispatch_free(dispatch);
 
 	return 0;
+}
+
+static void signal_handler(int sig) {
+	if (running) {
+		fprintf(stderr, "Signal received, shutting down\n");
+		running = 0;
+		ipc_notify(killsocket);
+	} else {
+		fprintf(stderr, "Another signal received, killing process\n");
+		kill(getpid(), SIGKILL);
+	}
+}
+
+static void dali_outband_handler(UsbDaliError err, DaliFramePtr frame, unsigned int response, void *arg) {
+	printf("Inband message received\n");
+}
+
+static void dali_inband_handler(UsbDaliError err, DaliFramePtr frame, unsigned int response, void *arg) {
+	printf("Outband message received\n");
 }
 
 #if 0

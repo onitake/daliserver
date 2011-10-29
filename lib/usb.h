@@ -64,6 +64,7 @@ UsbDaliPtr usbdali_open(libusb_context *context, DispatchPtr dispatch);
 // if it was created by usbdali_open.
 void usbdali_close(UsbDaliPtr dali);
 // Enqueue a Dali command
+// cbarg is the arg argument that will be passed to the inband callback
 UsbDaliError usbdali_queue(UsbDaliPtr dali, DaliFramePtr frame, void *cbarg);
 // Handle pending events, submit a receive request if no transfer is active.
 // The handler will block until the handler timeout expires or an I/O event occurs.
@@ -72,7 +73,7 @@ UsbDaliError usbdali_queue(UsbDaliPtr dali, DaliFramePtr frame, void *cbarg);
 // Set the handler timeout (in msec, default 100)
 // 0 is supposed to mean 'forever', but this isn't implemented yet.
 void usbdali_set_handler_timeout(UsbDaliPtr dali, unsigned int timeout);
-// Set the maximum queue size (default 50)
+// Set the maximum queue size (default and maximum 255)
 void usbdali_set_queue_size(UsbDaliPtr dali, unsigned int size);
 // Enable/disable debug messages (default: disabled)
 void usbdali_set_debug(UsbDaliPtr dali, int enable);

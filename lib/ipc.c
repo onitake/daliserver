@@ -27,7 +27,19 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <unistd.h>
+#include <poll.h>
+#include <fcntl.h>
+#include <stdint.h>
+#include <sys/socket.h>
 #include "ipc.h"
+
+struct Ipc {
+	int sockets[2];
+	DispatchPtr dispatch;
+};
+
+static void ipc_read_zero(void *arg);
 
 IpcPtr ipc_new() {
 	IpcPtr ret = malloc(sizeof(struct Ipc));
@@ -35,6 +47,7 @@ IpcPtr ipc_new() {
 		fprintf(stderr, "Error allocating memory for socket pair: %s\n", strerror(errno));
 		return NULL;
 	}
+	ret->dispatch = NULL;
 	// SOCK_STREAM delivers data in the same chunks as they were sent, at least on Mach.
 	// If this is not the case in your OS, SOCK_DGRAM must be used, but this has
 	// the implication that sockets can't be closed. Termination must be signalled some other way.
@@ -45,11 +58,52 @@ IpcPtr ipc_new() {
 	return ret;
 }
 
-void ipc_free(void *ipc) {
-	IpcPtr ipcptr = (IpcPtr) ipc;
-	if (ipcptr) {
-		close(ipcptr->sockets[0]);
-		close(ipcptr->sockets[1]);
+void ipc_free(IpcPtr ipc) {
+	if (ipc) {
+		if (ipc->dispatch) {
+			dispatch_remove_fd(ipc->dispatch, ipc_read_socket(ipc));
+		}
+		close(ipc->sockets[0]);
+		close(ipc->sockets[1]);
 		free(ipc);
+	}
+}
+
+void ipc_register(IpcPtr ipc, DispatchPtr dispatch) {
+	if (ipc) {
+		if (ipc->dispatch) {
+			dispatch_remove_fd(ipc->dispatch, ipc_read_socket(ipc));
+		}
+		ipc->dispatch = dispatch;
+		dispatch_add(ipc->dispatch, ipc_read_socket(ipc), POLLIN, ipc_read_zero, NULL, NULL, ipc);
+	}
+}
+
+void ipc_notify(IpcPtr ipc) {
+	if (ipc) {
+		uint8_t dummy = 0;
+		ssize_t wrbytes = write(ipc_write_socket(ipc), &dummy, sizeof(dummy));
+	}
+}
+
+int ipc_read_socket(IpcPtr ipc) {
+	if (ipc) {
+		return ipc->sockets[0];
+	}
+	return -1;
+}
+
+int ipc_write_socket(IpcPtr ipc) {
+	if (ipc) {
+		return ipc->sockets[0];
+	}
+	return -1;
+}
+
+static void ipc_read_zero(void *arg) {
+	IpcPtr ipc = (IpcPtr) arg;
+	if (ipc) {
+		uint8_t dummy = 0;
+		ssize_t rdbytes = read(ipc_read_socket(ipc), &dummy, sizeof(dummy));
 	}
 }

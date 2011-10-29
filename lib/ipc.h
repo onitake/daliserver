@@ -26,20 +26,25 @@
 #ifndef _IPC_H
 #define _IPC_H
 
-#include <unistd.h>
-#include <poll.h>
-#include <sys/socket.h>
+#include "dispatch.h"
 
-struct Ipc {
-	int sockets[2];
-};
+struct Ipc;
 typedef struct Ipc *IpcPtr;
 
 // Create an unnamed socket pair for interprocess or interthread communication
 IpcPtr ipc_new();
 // Close both sockets and free all resources
-void ipc_free(void *ipc);
-
+void ipc_free(IpcPtr ipc);
+// Registers the read socket on a dispatch queue, unregisters the previous registration
+// A dummy reader callback is attached that will read one byte from the read socket
+// This is intended to be used in conjunction with ipc_notify
+void ipc_register(IpcPtr ipc, DispatchPtr dispatch);
+// Simple notification mechanism, just write()s a 0 byte to the write socket
+void ipc_notify(IpcPtr ipc);
+// Returns the output end of the pipe
+int ipc_read_socket(IpcPtr ipc);
+// Returns the input end of the pipe
+int ipc_write_socket(IpcPtr ipc);
 // No data handling routines are provided, just use send(2), recv(2), close(2), poll(2), etc.
 
 #endif /*_IPC_H*/
