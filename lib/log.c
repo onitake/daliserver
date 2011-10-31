@@ -23,28 +23,63 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef _NET_H
-#define _NET_H
+#include "log.h"
+#include <stdio.h>
+#include <time.h>
+#include <string.h>
 
-#include <stddef.h>
-#include "dispatch.h"
+#ifndef LOG_LEVEL_DEFAULT
+#ifdef DEBUG
+#define LOG_LEVEL_DEFAULT LOG_DEBUG
+#else
+#define LOG_LEVEL_DEFAULT LOG_INFO
+#endif
+#endif
 
-struct Server;
-typedef struct Server *ServerPtr;
-struct Connection;
-typedef struct Connection *ConnectionPtr;
+static unsigned int loglevel = LOG_LEVEL_DEFAULT;
 
-typedef void (*ConnectionReceivedFunc)(void *arg, const char *buffer, size_t bufsize, ConnectionPtr conn);
+void log_vprintf(unsigned int level, const char *format, va_list args) {
+	if (level <= loglevel && level <= LOG_LEVEL_MAX) {
+		time_t now = time(NULL);
+		if (level <= LOG_ERROR) {
+			fprintf(stderr, "[%ld] ", now);
+		} else {
+			printf("[%ld] ", now);
+		}
+		switch (level) {
+		case LOG_FATAL:
+			fprintf(stderr, "!!FATAL!! ");
+			break;
+		case LOG_ERROR:
+			fprintf(stderr, "**ERROR** ");
+			break;
+		case LOG_WARN:
+			printf("--WARNING-- ");
+			break;
+		case LOG_INFO:
+			printf("INFO ");
+			break;
+		case LOG_DEBUG:
+		default:
+			break;
+		}
+		if (level <= LOG_ERROR) {
+			vfprintf(stderr, format, args);
+			fprintf(stderr, "\n");
+		} else {
+			vprintf(format, args);
+			printf("\n");
+		}
+	}
+}
 
-// Creates a new server that listens on the specified address and port
-// Use 0.0.0.0 to listen on all interfaces
-ServerPtr server_open(DispatchPtr dispatch, const char *listenaddr, unsigned int port, size_t framesize, ConnectionReceivedFunc recvfn, void *arg);
-// Shuts the server down and closes all connections
-void server_close(ServerPtr server);
-// Sends a message to all connections not waiting for a reply
-void server_broadcast(ServerPtr server, const char *buffer, size_t bufsize);
+void log_printf(unsigned int level, const char *format, ...) {
+	va_list args;
+	va_start(args, format);
+	log_vprintf(level, format, args);
+	va_end(args);
+}
 
-// Sends a reply
-void connection_reply(ConnectionPtr conn, const char *buffer, size_t bufsize);
-
-#endif //_NET_H
+void log_set_level(unsigned int level) {
+	loglevel = level;
+}

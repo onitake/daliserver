@@ -76,7 +76,7 @@ void usbdali_set_handler_timeout(UsbDaliPtr dali, unsigned int timeout);
 // Set the maximum queue size (default and maximum 255)
 void usbdali_set_queue_size(UsbDaliPtr dali, unsigned int size);
 // Enable/disable debug messages (default: disabled)
-void usbdali_set_debug(UsbDaliPtr dali, int enable);
+//void usbdali_set_debug(UsbDaliPtr dali, int enable);
 // Sets the out of band message callback
 void usbdali_set_outband_callback(UsbDaliPtr dali, UsbDaliOutBandCallback callback, void *arg);
 // Sets the in band message callback
@@ -85,6 +85,8 @@ void usbdali_set_inband_callback(UsbDaliPtr dali, UsbDaliInBandCallback callback
 // It will be polled for input and error conditions; if an error occured,
 // the callback closed argument will be 1, 0 otherwise.
 //void usbdali_set_event_callback(UsbDaliPtr dali, int fd, UsbDaliEventCallback callback, void *arg);
+// Returns the next timeout to use for polling in msecs, -1 if no timeout is active
+int usbdali_get_timeout(UsbDaliPtr dali);
 
 #endif /*_USB_H*/
 

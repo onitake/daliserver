@@ -32,6 +32,8 @@
 #include "list.h"
 #include "pack.h"
 #include "array.h"
+#include "log.h"
+#include "util.h"
 
 typedef struct {
 	//struct libusb_transfer *transfer;
@@ -60,8 +62,9 @@ struct UsbDali {
 	UsbDaliEventCallback event_callback;
 	void *bcast_arg;
 	void *event_arg;
-	int debug;
+	//int debug;
 	ssize_t event_index;
+	int shutdown;
 };
 
 typedef struct {
@@ -258,7 +261,6 @@ static void usbdali_print_in(uint8_t *buffer, size_t buflen) {
 			case USBDALI_TYPE_24BIT_TRANSFER:
 				printf("Type: 24bit DALI Transfer ");
 				break;
-				break;
 			default:
 				printf("Type: Unknown (%02x) ", buffer[1]);
 				break;
@@ -329,7 +331,7 @@ static void usbdali_dispatch_ready(void *arg) {
 		struct timeval tv = { 0, 0 };
 		int err = libusb_handle_events_timeout(dali->context, &tv);
 		if (err != LIBUSB_SUCCESS) {
-			fprintf(stderr, "Error handling USB events: %s\n", libusb_error_string(err));
+			log_error("Error handling USB events: %s", libusb_error_string(err));
 		}
 	}
 }
@@ -337,7 +339,7 @@ static void usbdali_dispatch_ready(void *arg) {
 static void usbdali_dispatch_error(void *arg, DispatchError err) {
 	UsbDaliPtr dali = (UsbDaliPtr) arg;
 	if (dali) {
-		fprintf(stderr, "Dispatch queue reported error %d\n", err);
+		log_error("Dispatch queue reported error %d", err);
 	}
 }
 
@@ -357,7 +359,7 @@ static void usbdali_remove_pollfd(int fd, void *user_data) {
 
 UsbDaliPtr usbdali_open(libusb_context *context, DispatchPtr dispatch) {
 	if (!dispatch) {
-		fprintf(stderr, "No dispatch queue specified\n");
+		log_error("No dispatch queue specified");
 		return NULL;
 	}
 		
@@ -366,7 +368,7 @@ UsbDaliPtr usbdali_open(libusb_context *context, DispatchPtr dispatch) {
 		free_context = 1;
 		int err = libusb_init(&context);
 		if (err != LIBUSB_SUCCESS) {
-			fprintf(stderr, "Error initializing libusb: %s\n", libusb_error_string(err));
+			log_error("Error initializing libusb: %s", libusb_error_string(err));
 			return NULL;
 		}
 	} else {
@@ -392,18 +394,18 @@ UsbDaliPtr usbdali_open(libusb_context *context, DispatchPtr dispatch) {
 							endpoint_out = config->interface[0].altsetting[0].endpoint[0].bEndpointAddress;
 							endpoint_in = config->interface[0].altsetting[0].endpoint[1].bEndpointAddress;
 						}
-						printf("Input endpoint: 0x%02x\n", endpoint_in);
-						printf("Output endpoint: 0x%02x\n", endpoint_out);
+						log_info("Input endpoint: 0x%02x", endpoint_in);
+						log_info("Output endpoint: 0x%02x", endpoint_out);
 
 						libusb_free_config_descriptor(config);
 
 						err = libusb_kernel_driver_active(handle, 0);
 						if (err >= LIBUSB_SUCCESS) {
 							if (err == 1) {
-								printf("Kernel driver is active, trying to detach\n");
+								log_info("Kernel driver is active, trying to detach");
 								err = libusb_detach_kernel_driver(handle, 0);
 								if (err != LIBUSB_SUCCESS) {
-									fprintf(stderr, "Error detaching interface from kernel: %s\n", libusb_error_string(err));
+									log_error("Error detaching interface from kernel: %s", libusb_error_string(err));
 								}
 							}
 
@@ -436,8 +438,9 @@ UsbDaliPtr usbdali_open(libusb_context *context, DispatchPtr dispatch) {
 												dali->event_callback = NULL;
 												dali->bcast_arg = NULL;
 												dali->event_arg = NULL;
-												dali->debug = 0;
+												//dali->debug = 0;
 												dali->event_index = -1;
+												dali->shutdown = 0;
 
 												size_t i;
 												for (i = 0; usbfds[i]; i++) {
@@ -450,10 +453,10 @@ UsbDaliPtr usbdali_open(libusb_context *context, DispatchPtr dispatch) {
 
 												return dali;
 											} else {
-												fprintf(stderr, "Can't allocate device structure\n");
+												log_error("Can't allocate device structure");
 											}
 										} else {
-											fprintf(stderr, "Error creating dynamic array for poll fds, possibly out of memory\n");
+											log_error("Error creating dynamic array for poll fds, possibly out of memory");
 										}
 										if (pollfds) {
 											array_free(pollfds);
@@ -462,40 +465,40 @@ UsbDaliPtr usbdali_open(libusb_context *context, DispatchPtr dispatch) {
 											free(usbfds);
 										}
 									} else {
-										fprintf(stderr, "Error assigning altsetting: %s\n", libusb_error_string(err));
+										log_error("Error assigning altsetting: %s", libusb_error_string(err));
 									}
 									libusb_release_interface(handle, 0);
 								} else {
-									fprintf(stderr, "Error claiming interface: %s\n", libusb_error_string(err));
+									log_error("Error claiming interface: %s", libusb_error_string(err));
 								}
 							} else {
-								fprintf(stderr, "Error setting configuration: %s\n", libusb_error_string(err));
+								log_error("Error setting configuration: %s", libusb_error_string(err));
 							}
 							err = libusb_attach_kernel_driver(handle, 0);
 							if (err != LIBUSB_SUCCESS) {
-								fprintf(stderr, "Error reattaching interface: %s\n", libusb_error_string(err));
+								log_error("Error reattaching interface: %s", libusb_error_string(err));
 							}
 						} else {
-							fprintf(stderr, "Error getting interface active state: %s\n", libusb_error_string(err));
+							log_error("Error getting interface active state: %s", libusb_error_string(err));
 						}
 					} else {
-						fprintf(stderr, "Need exactly two endpoints, got %d\n", config->interface[0].altsetting[0].bNumEndpoints);
+						log_error("Need exactly two endpoints, got %d", config->interface[0].altsetting[0].bNumEndpoints);
 					}
 				} else {
-					fprintf(stderr, "Need exactly one altsetting, got %d\n", config->interface[0].num_altsetting);
+					log_error("Need exactly one altsetting, got %d", config->interface[0].num_altsetting);
 				}
 			} else {
-				fprintf(stderr, "Need exactly one interface, got %d\n", config->bNumInterfaces);
+				log_error("Need exactly one interface, got %d", config->bNumInterfaces);
 			}
 
 			libusb_free_config_descriptor(config);
 		} else {
-			fprintf(stderr, "Error getting configuration descriptor: %s\n", libusb_error_string(err));
+			log_error("Error getting configuration descriptor: %s", libusb_error_string(err));
 		}
 
 		libusb_close(handle);
 	} else {
-		fprintf(stderr, "Can't find USB device\n");
+		log_error("Can't find USB device");
 	}
 
 	if (free_context) {
@@ -506,6 +509,8 @@ UsbDaliPtr usbdali_open(libusb_context *context, DispatchPtr dispatch) {
 
 void usbdali_close(UsbDaliPtr dali) {
 	if (dali) {
+		dali->shutdown = 1;
+
 		list_free(dali->queue);
 		
 		usbdali_transfer_free(dali->send_transfer);
@@ -517,17 +522,16 @@ void usbdali_close(UsbDaliPtr dali) {
 
 		libusb_release_interface(dali->handle, 0);
 
-		int err = libusb_attach_kernel_driver(dali->handle, 0);	
+		log_info("Reattaching kernel driver");
+		int err = libusb_attach_kernel_driver(dali->handle, 0);
 		if (err != LIBUSB_SUCCESS) {
-			fprintf(stderr, "Error reattaching interface: %s\n", libusb_error_string(err));
+			log_error("Error reattaching interface: %s", libusb_error_string(err));
 		}
 
 		libusb_close(dali->handle);
 
 		if (dali->free_context) {
-			if (dali->debug) {
-				printf("Freeing libusb context\n");
-			}
+			log_debug("Freeing libusb context");
 			libusb_exit(dali->context);
 		}
 		
@@ -536,24 +540,16 @@ void usbdali_close(UsbDaliPtr dali) {
 }
 
 static void usbdali_next(UsbDaliPtr dali) {
-	if (dali->debug) {
-		printf("Handling requests\n");
-	}
+	log_debug("Handling requests");
 	if (!dali->send_transfer) {
-		if (dali->debug) {
-			printf("No send transfer active\n");
-		}
+		log_debug("No send transfer active");
 		UsbDaliTransfer *transfer = list_dequeue(dali->queue);
 		if (transfer) {
-			if (dali->debug) {
-				printf("Dequeued transfer\n");
-			}
+			log_debug("Dequeued transfer");
 			usbdali_send(dali, transfer);
 		} else {
 			if (!dali->recv_transfer) {
-				if (dali->debug) {
-					printf("No receive transfer active\n");
-				}
+				log_debug("No receive transfer active");
 				usbdali_receive(dali);
 			}
 		}
@@ -563,8 +559,8 @@ static void usbdali_next(UsbDaliPtr dali) {
 static void usbdali_receive_callback(struct libusb_transfer *transfer) {
 	UsbDaliPtr dali = (UsbDaliPtr) transfer->user_data;
 
-	if (dali->debug) {
-		printf("Received data from device (status=0x%x - %s):\n", transfer->status, libusb_status_string(transfer->status));
+	log_info("Received data from device (status=0x%x - %s):", transfer->status, libusb_status_string(transfer->status));
+	if (log_debug_enabled()) {
 		hexdump(transfer->buffer, transfer->actual_length);
 		usbdali_print_in(transfer->buffer, transfer->actual_length);
 		printf("\n");
@@ -576,8 +572,8 @@ static void usbdali_receive_callback(struct libusb_transfer *transfer) {
 		case LIBUSB_TRANSFER_COMPLETED: {
 			UsbDaliIn in;
 			size_t length = transfer->actual_length;
-			if (unpack(">CC CCCSC", transfer->buffer, &length, &in.direction, &in.type, &in.ecommand, &in.address, &in.command, &in.status, &in.seqnum) == -1) {
-				fprintf(stderr, "Invalid packet received\n");
+			if (unpack(">CC CCCSC", (const char *) transfer->buffer, &length, &in.direction, &in.type, &in.ecommand, &in.address, &in.command, &in.status, &in.seqnum) == -1) {
+				log_error("Invalid packet received");
 			} else {
 				switch (in.direction) {
 					case USBDALI_DIRECTION_DALI:
@@ -593,9 +589,7 @@ static void usbdali_receive_callback(struct libusb_transfer *transfer) {
 								daliframe_free(frame);
 							} break;
 							default:
-								if (dali->debug) {
-									printf("Not handling unknown message type 0x%02x\n", in.type);
-								}
+								log_info("Not handling unknown message type 0x%02x", in.type);
 								break;
 						}
 						break;
@@ -604,18 +598,14 @@ static void usbdali_receive_callback(struct libusb_transfer *transfer) {
 							if (dali->send_transfer->seq_num == in.seqnum) {
 								switch (in.type) {
 									case USBDALI_TYPE_16BIT_COMPLETE:
-										if (dali->debug) {
-											printf("Transfer completed with status 0x%04x\n", in.status);
-										}
+										log_debug("Transfer completed with status 0x%04x", in.status);
 										// Transfer completed, do not tail another cancel
 										//dali->send_transfer->transfer = NULL;
 										usbdali_transfer_free(dali->send_transfer);
 										dali->send_transfer = NULL;
 										break;
 									case USBDALI_TYPE_24BIT_COMPLETE:
-										if (dali->debug) {
-											printf("Transfer completed with status 0x%04x\n", in.status);
-										}
+										log_debug("Transfer completed with status 0x%04x", in.status);
 										//dali->send_transfer->transfer = NULL;
 										usbdali_transfer_free(dali->send_transfer);
 										dali->send_transfer = NULL;
@@ -631,16 +621,14 @@ static void usbdali_receive_callback(struct libusb_transfer *transfer) {
 										daliframe_free(frame);
 									} break;
 									default:
-										if (dali->debug) {
-											printf("Not handling unknown message type 0x%02x\n", in.type);
-										}
+										log_info("Not handling unknown message type 0x%02x", in.type);
 										break;
 								}
 							} else {
-								fprintf(stderr, "Got response with sequence number different from transfer\n");
+								log_warn("Got response with sequence number different from transfer");
 							}
 						} else {
-							fprintf(stderr, "Got response while no send transfer was active\n");
+							log_warn("Got response while no send transfer was active");
 						}
 						break;
 				}
@@ -674,7 +662,9 @@ static void usbdali_receive_callback(struct libusb_transfer *transfer) {
 	free(transfer->buffer);
 	libusb_free_transfer(transfer);
 
-	usbdali_next(dali);
+	if (!dali->shutdown) {
+		usbdali_next(dali);
+	}
 }
 
 static int usbdali_receive(UsbDaliPtr dali) {
@@ -682,9 +672,7 @@ static int usbdali_receive(UsbDaliPtr dali) {
 		unsigned char *buffer = malloc(USBDALI_LENGTH);
 		memset(buffer, 0, USBDALI_LENGTH);
 		
-		if (dali->debug) {
-			printf("Receiving data from device\n");
-		}
+		log_debug("Receiving data from device");
 		dali->recv_transfer = libusb_alloc_transfer(0);
 		libusb_fill_interrupt_transfer(dali->recv_transfer, dali->handle, dali->endpoint_in, buffer, USBDALI_LENGTH, usbdali_receive_callback, dali, dali->cmd_timeout);
 		return libusb_submit_transfer(dali->recv_transfer);
@@ -695,10 +683,8 @@ static int usbdali_receive(UsbDaliPtr dali) {
 static void usbdali_send_callback(struct libusb_transfer *transfer) {
 	UsbDaliPtr dali = transfer->user_data;
 
-	if (dali->debug) {
-		printf("Sent data to device (status=0x%x - %s):\n", transfer->status, libusb_status_string(transfer->status));
-	}
-	
+	log_info("Sent data to device (status=0x%x - %s)", transfer->status, libusb_status_string(transfer->status));
+
 	free(transfer->buffer);
 
 	switch (transfer->status) {
@@ -725,7 +711,9 @@ static void usbdali_send_callback(struct libusb_transfer *transfer) {
 	
 	libusb_free_transfer(transfer);
 
-	usbdali_next(dali);
+	if (!dali->shutdown) {
+		usbdali_next(dali);
+	}
 }
 
 static int usbdali_send(UsbDaliPtr dali, UsbDaliTransfer *transfer) {
@@ -738,19 +726,19 @@ static int usbdali_send(UsbDaliPtr dali, UsbDaliTransfer *transfer) {
 		memset(buffer, 0, USBDALI_LENGTH);
 		size_t length = USBDALI_LENGTH;
 		if (transfer->request->ecommand == 0) {
-			if (!pack("CCCCCCCC", buffer, &length, USBDALI_DIRECTION_USB, dali->seq_num, 0x00, USBDALI_TYPE_16BIT, 0x00, 0x00, transfer->request->address, transfer->request->command)) {
+			if (!pack("CCCCCCCC", (char *) buffer, &length, USBDALI_DIRECTION_USB, dali->seq_num, 0x00, USBDALI_TYPE_16BIT, 0x00, 0x00, transfer->request->address, transfer->request->command)) {
 				free(buffer);
 				return -1;
 			}
 		} else {
-			if (!pack("CCCCCCCC", buffer, &length, USBDALI_DIRECTION_USB, dali->seq_num, 0x00, USBDALI_TYPE_24BIT, 0x00, transfer->request->ecommand, transfer->request->address, transfer->request->command)) {
+			if (!pack("CCCCCCCC", (char *) buffer, &length, USBDALI_DIRECTION_USB, dali->seq_num, 0x00, USBDALI_TYPE_24BIT, 0x00, transfer->request->ecommand, transfer->request->address, transfer->request->command)) {
 				free(buffer);
 				return -1;
 			}
 		}
 		
-		if (dali->debug) {
-			printf("Sending data to device:\n");
+		log_debug("Sending data to device:");
+		if (log_debug_enabled()) {
 			hexdump(buffer, USBDALI_LENGTH);
 			usbdali_print_out(buffer, USBDALI_LENGTH);
 			printf("\n");
@@ -771,16 +759,12 @@ static int usbdali_send(UsbDaliPtr dali, UsbDaliTransfer *transfer) {
 
 UsbDaliError usbdali_queue(UsbDaliPtr dali, DaliFramePtr frame, void *cbarg) {
 	if (dali) {
-		if (dali->debug) {
-			printf("dali=%p frame=%p arg=%p\n", dali, frame, cbarg);
-		}
+		log_debug("dali=%p frame=%p arg=%p", dali, frame, cbarg);
 		if (list_length(dali->queue) < dali->queue_size) {
 			UsbDaliTransfer *transfer = usbdali_transfer_new(frame, cbarg);
 			if (transfer) {
 				list_enqueue(dali->queue, transfer);
-				if (dali->debug) {
-					printf("Enqueued transfer (%p,%p)\n", transfer->request, transfer->arg);
-				}
+				log_info("Enqueued transfer (%p,%p)", transfer->request, transfer->arg);
 				usbdali_next(dali);
 				return USBDALI_SUCCESS;
 			}
@@ -854,24 +838,24 @@ UsbDaliError usbdali_queue(UsbDaliPtr dali, DaliFramePtr frame, void *cbarg) {
 	return USBDALI_INVALID_ARG;
 }*/
 
-static void usbdali_set_cmd_timeout(UsbDaliPtr dali, unsigned int timeout) {
+/*static void usbdali_set_cmd_timeout(UsbDaliPtr dali, unsigned int timeout) {
 	if (dali) {
 		dali->cmd_timeout = timeout;
 	}
-}
+}*/
 
-void usbdali_set_handler_timeout(UsbDaliPtr dali, unsigned int timeout) {
+/*void usbdali_set_handler_timeout(UsbDaliPtr dali, unsigned int timeout) {
 	if (dali) {
 		dali->handle_timeout = timeout;
 	}
-}
+}*/
 
-void usbdali_set_debug(UsbDaliPtr dali, int enable) {
+/*void usbdali_set_debug(UsbDaliPtr dali, int enable) {
 	if (dali) {
 		dali->debug = enable ? 1 : 0;
 		libusb_set_debug(dali->context, enable ? 3 : 0);
 	}
-}
+}*/
 
 void usbdali_set_outband_callback(UsbDaliPtr dali, UsbDaliOutBandCallback callback, void *arg) {
 	if (dali) {
@@ -922,3 +906,15 @@ static void usbdali_transfer_free(UsbDaliTransfer *transfer) {
 	}
 }
 
+int usbdali_get_timeout(UsbDaliPtr dali) {
+	if (dali) {
+		struct timeval tv = { 0, 0 };
+		if (libusb_get_next_timeout(dali->context, &tv) == 1) {
+			int tvms = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+			log_debug("Returning timeout %d", tvms);
+			return tvms;
+		}
+	}
+	log_debug("Returning timeout -1");
+	return -1;
+}

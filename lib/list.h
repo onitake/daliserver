@@ -26,26 +26,44 @@
 #ifndef _LIST_H
 #define _LIST_H
 
-#include <sys/types.h>
+#include <stddef.h>
 
 struct List;
 typedef struct List *ListPtr;
 struct ListNode;
 typedef struct ListNode *ListNodePtr;
+
 typedef void (*ListDataFreeFunc)(void *);
 typedef int (*ListFindNodeFunc)(void *, void *);
 
+// Creates a new empty double-linked list
+// func is a type-specific destructor for the data to be put into the list
+// Pass NULL if you don't need destruction when the list is free'd
 ListPtr list_new(ListDataFreeFunc func);
+// Destroys the list and all its contents (if a data destructor was passed in)
 void list_free(ListPtr list);
+// Returns the number of entries contained in the list
 size_t list_length(ListPtr list);
+// Appends a new entry to the beginning of the list
 ListNodePtr list_enqueue(ListPtr list, void *data);
+// Removes the last entry from the list and returns its data pointer
 void *list_dequeue(ListPtr list);
+// Removes an element from the list and returns its data pointer
 void *list_remove(ListPtr list, ListNodePtr node);
+// Gets the data pointer from a list element
 void *list_data(ListNodePtr node);
+// Finds the first element in the list that matches arg using matching function func
 ListNodePtr list_find(ListPtr list, ListFindNodeFunc func, void *arg);
+// Locks the list mutex
 void list_lock(ListPtr list);
+// Unlocks the list mutex
 void list_unlock(ListPtr list);
+// Returns the first element in the list
 ListNodePtr list_first(ListPtr list);
+// Returns the element following node in the list
 ListNodePtr list_next(ListNodePtr node);
+
+// Convenience compare function that checks if the data pointers point to the same location
+int list_equal(void *, void *);
 
 #endif /*_LIST_H*/

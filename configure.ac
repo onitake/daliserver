@@ -41,6 +41,11 @@ PKG_CHECK_MODULES([LIBUSB10], [libusb-1.0 >= 1.0.8], [], [
 	AC_MSG_FAILURE([libusb-1.0 is required])
 ])
 
+# Custom features
+AC_ARG_ENABLE([debug], [AS_HELP_STRING([--enable-debug], [enable debug messages (default is no)])], [
+	AC_DEFINE(DEBUG, 1, [Enable debug messages])
+])
+
 AC_CONFIG_FILES([Makefile src/Makefile lib/Makefile doc/Makefile test/Makefile perl/Makefile])
 AC_OUTPUT
 

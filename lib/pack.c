@@ -65,9 +65,9 @@ enum {
 	PACK_SYS = '=',
 };
 
-static size_t pack_length(char *format) {
+static size_t pack_length(const char *format) {
 	size_t length = 0;
-	char *fmt;
+	const char *fmt;
 	for (fmt = format; *fmt; fmt++) {
 		switch (*fmt) {
 			case PACK_BYTE:
@@ -94,7 +94,7 @@ static size_t pack_length(char *format) {
 	return length;
 }
 
-char *pack(char *format, char *data, size_t *size, ...) {
+char *pack(const char *format, char *data, size_t *size, ...) {
 	size_t length = pack_length(format);
 	if (data && (!size || (length > *size))) {
 		errno = EINVAL;
@@ -116,7 +116,7 @@ char *pack(char *format, char *data, size_t *size, ...) {
 	va_start(args, size);
 	
 	char *out = ret;
-	char *fmt;
+	const char *fmt;
 	for (fmt = format; *fmt; fmt++) {
 		switch (*fmt) {
 			case PACK_SKIP: {
@@ -216,7 +216,7 @@ char *pack(char *format, char *data, size_t *size, ...) {
 	return ret;
 }
 
-int unpack(char *format, char *data, size_t *size, ...) {
+int unpack(const char *format, const char *data, size_t *size, ...) {
 	size_t length = pack_length(format);
 	if (data && (!size || (length > *size))) {
 		errno = EINVAL;
@@ -228,7 +228,7 @@ int unpack(char *format, char *data, size_t *size, ...) {
 	va_start(args, size);
 	
 	unsigned char *in = (unsigned char *) data;
-	char *fmt;
+	const char *fmt;
 	for (fmt = format; *fmt; fmt++) {
 		switch (*fmt) {
 			case PACK_SKIP: {
@@ -325,4 +325,5 @@ int unpack(char *format, char *data, size_t *size, ...) {
 	}
 	
 	va_end(args);
+	return 0;
 }

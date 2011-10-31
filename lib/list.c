@@ -182,10 +182,16 @@ ListNodePtr list_first(ListPtr list) {
 	if (list) {
 		return list->head;
 	}
+	return NULL;
 }
 
 ListNodePtr list_next(ListNodePtr node) {
 	if (node) {
 		return node->next;
 	}
+	return NULL;
+}
+
+int list_equal(void *a, void *b) {
+	return a == b;
 }

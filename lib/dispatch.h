@@ -30,7 +30,8 @@
 
 typedef enum {
 	DISPATCH_FD_CLOSED = -1,
-	DISPATCH_POLL_ERROR = -2
+	DISPATCH_POLL_ERROR = -2,
+	DISPATCH_FD_INVALID = -3,
 } DispatchError;
 
 // Callback function pointer to input handler routine
@@ -48,10 +49,13 @@ DispatchPtr dispatch_new();
 // Destroy a dispatch queue
 void dispatch_free(DispatchPtr table);
 // Wait for I/O events on all the file descriptors in the dispatch queue
-// Returns 1 if a timeout occured, 2 if events were handled and 0 if there was an error
-int dispatch_run(DispatchPtr table);
-// Set the wait timeout in msecs
-void dispatch_set_timeout(DispatchPtr table, int timeout);
+// Pass -1 for the timeout to wait forever
+// Returns:
+// 0 on error
+// 1 if a timeout occured
+// 2 if events were handled
+// 3 if no events were waiting
+int dispatch_run(DispatchPtr table, int timeout);
 
 // Add a file descriptor to the dispatch queue
 // fd must be a valid file descriptor

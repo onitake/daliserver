@@ -28,7 +28,7 @@
 
 #include <sys/types.h>
 
-char *pack(char *format, char *data, size_t *size, ...);
-int unpack(char *format, char *data, size_t *size, ...);
+char *pack(const char *format, char *data, size_t *size, ...);
+int unpack(const char *format, const char *data, size_t *size, ...);
 
 #endif /*_PACK_H*/

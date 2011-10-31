@@ -26,8 +26,10 @@
 #include "dispatch.h"
 #include <stdlib.h>
 #include <poll.h>
+#include <stdlib.h>
+#include <errno.h>
+#include "log.h"
 
-static const int DISPATCH_DEFAULT_TIMEOUT = -1;
 static const size_t DISPATCH_ALLOC_INCREASE = 4;
 
 struct DispatchEntry {
@@ -42,7 +44,6 @@ struct Dispatch {
 	size_t allocentries;
 	struct DispatchEntry *entries;
 	struct pollfd *fds;
-	int timeout;
 };
 
 DispatchPtr dispatch_new() {
@@ -52,7 +53,6 @@ DispatchPtr dispatch_new() {
 		ret->allocentries = 0;
 		ret->entries = NULL;
 		ret->fds = NULL;
-		ret->timeout = DISPATCH_DEFAULT_TIMEOUT;
 	}
 	return ret;
 }
@@ -65,29 +65,46 @@ void dispatch_free(DispatchPtr table) {
 	}
 }
 
-int dispatch_run(DispatchPtr table) {
+int dispatch_run(DispatchPtr table, int timeout) {
 	if (table) {
-		int ready = poll(table->fds, table->numentries, table->timeout);
+		int ready = poll(table->fds, table->numentries, timeout);
 		if (ready == -1) {
-			// error
+			// error or signal
+			if (errno != EINTR) {
+				log_error("Error waiting for I/O events");
+			}
 			return 0;
 		} else if (ready == 0) {
 			// timeout
+			log_debug("poll() timeout");
 			return 1;
 		} else {
+			log_debug("poll() events waiting: %d", ready);
 			size_t i;
 			for (i = 0; i < table->numentries; i++) {
-				if (table->fds[i].revents & POLLERR) {
+				if (table->fds[i].revents != 0) {
+					log_debug("Events on fd %d: 0x%x", table->fds[i].fd, table->fds[i].revents);
+				}
+				// If any of these handlers remove a file descriptor,
+				// the loop will be out of sync and events might be skipped
+				// Not a big deal though, if everyting else works correctly
+				if (table->fds[i].revents & POLLNVAL) {
+					log_debug("Invalid fd %d", table->fds[i].fd);
+					if (table->entries[i].errorfn) {
+						table->entries[i].errorfn(table->entries[i].arg, DISPATCH_FD_INVALID);
+					}
+				} else if (table->fds[i].revents & POLLERR) {
+					log_debug("Error event on fd %d", table->fds[i].fd);
 					if (table->entries[i].errorfn) {
 						table->entries[i].errorfn(table->entries[i].arg, DISPATCH_POLL_ERROR);
 					}
-				}
-				if (table->fds[i].revents & POLLHUP) {
+				} else if (table->fds[i].revents & POLLHUP) {
+					log_debug("Hangup event on fd %d", table->fds[i].fd);
 					if (table->entries[i].errorfn) {
 						table->entries[i].errorfn(table->entries[i].arg, DISPATCH_FD_CLOSED);
 					}
-				}
-				if (table->fds[i].revents & POLLIN) {
+				} else if (table->fds[i].revents & table->fds[i].events) {
+					log_debug("I/O event on fd %d", table->fds[i].fd);
 					if (table->entries[i].readyfn) {
 						table->entries[i].readyfn(table->entries[i].arg);
 					}
@@ -99,14 +116,9 @@ int dispatch_run(DispatchPtr table) {
 	return 0;
 }
 
-void dispatch_set_timeout(DispatchPtr table, int timeout) {
-	if (table) {
-		table->timeout = timeout;
-	}
-}
-
 void dispatch_add(DispatchPtr table, int fd, short events, DispatchReadyFunc readyfn, DispatchErrorFunc errorfn, DispatchIndexFunc indexfn, void *arg) {
-	if (table && readyfn && errorfn && indexfn && fd >= 0) {
+	if (table && fd >= 0) {
+		log_debug("Adding %d to dispatch queue", fd);
 		if (table->allocentries < table->numentries + 1) {
 			table->allocentries += DISPATCH_ALLOC_INCREASE;
 			table->entries = realloc(table->entries, sizeof(struct DispatchEntry) * table->allocentries);
@@ -124,6 +136,7 @@ void dispatch_add(DispatchPtr table, int fd, short events, DispatchReadyFunc rea
 			} else {
 				table->fds[index].events = events;
 			}
+			log_debug("Poll events for fd %d are: 0x%x", fd, table->fds[index].events);
 			table->fds[index].revents = 0;
 			if (table->entries[index].indexfn) {
 				table->entries[index].indexfn(table->entries[index].arg, index);
@@ -146,8 +159,10 @@ void dispatch_remove_fd(DispatchPtr table, int fd) {
 }
 
 void dispatch_remove(DispatchPtr table, size_t index) {
+	// TODO: There's something wrong here
 	if (table && index < table->numentries) {
 		if (index != table->numentries - 1) {
+			log_debug("Removing %d from dispatch queue", table->fds[index].fd);
 			table->entries[index].arg = table->entries[table->numentries - 1].arg;
 			table->entries[index].readyfn = table->entries[table->numentries - 1].readyfn;
 			table->entries[index].errorfn = table->entries[table->numentries - 1].errorfn;

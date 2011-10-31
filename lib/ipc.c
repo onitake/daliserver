@@ -23,7 +23,6 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
@@ -33,6 +32,7 @@
 #include <stdint.h>
 #include <sys/socket.h>
 #include "ipc.h"
+#include "log.h"
 
 struct Ipc {
 	int sockets[2];
@@ -44,7 +44,7 @@ static void ipc_read_zero(void *arg);
 IpcPtr ipc_new() {
 	IpcPtr ret = malloc(sizeof(struct Ipc));
 	if (!ret) {
-		fprintf(stderr, "Error allocating memory for socket pair: %s\n", strerror(errno));
+		log_error("Error allocating memory for socket pair: %s", strerror(errno));
 		return NULL;
 	}
 	ret->dispatch = NULL;
@@ -52,7 +52,7 @@ IpcPtr ipc_new() {
 	// If this is not the case in your OS, SOCK_DGRAM must be used, but this has
 	// the implication that sockets can't be closed. Termination must be signalled some other way.
 	if (socketpair(PF_LOCAL, SOCK_STREAM, 0, ret->sockets) == -1) {
-		fprintf(stderr, "Error creating socket pair: %s\n", strerror(errno));
+		log_error("Error creating socket pair: %s", strerror(errno));
 		return NULL;
 	}
 	return ret;

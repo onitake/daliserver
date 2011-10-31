@@ -24,7 +24,6 @@
  */
 
 #include "util.h"
-
 #include <stdio.h>
 
 void hexdump(const uint8_t *data, size_t length) {
