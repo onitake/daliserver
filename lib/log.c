@@ -41,35 +41,38 @@ static unsigned int loglevel = LOG_LEVEL_DEFAULT;
 void log_vprintf(unsigned int level, const char *format, va_list args) {
 	if (level <= loglevel && level <= LOG_LEVEL_MAX) {
 		time_t now = time(NULL);
+		FILE *out;
 		if (level <= LOG_ERROR) {
-			fprintf(stderr, "[%ld] ", now);
+			out = stderr;
 		} else {
-			printf("[%ld] ", now);
+			out = stdout;
 		}
+#ifdef HAVE_LOCALTIME_R
+		struct tm nowtm;
+		localtime_r(&now, &nowtm);
+		fprintf(out, "[%d-%02d-%02d %02d:%02d:%02d] ", nowtm.tm_year + 1900, nowtm.tm_mon, nowtm.tm_mday, nowtm.tm_hour, nowtm.tm_min, nowtm.tm_sec);
+#else
+		fprintf(out, "[%ld] ", now);
+#endif
 		switch (level) {
 		case LOG_FATAL:
-			fprintf(stderr, "!!FATAL!! ");
+			fprintf(out, "!!FATAL!! ");
 			break;
 		case LOG_ERROR:
-			fprintf(stderr, "**ERROR** ");
+			fprintf(out, "**ERROR** ");
 			break;
 		case LOG_WARN:
-			printf("--WARNING-- ");
+			fprintf(out, "--WARNING-- ");
 			break;
 		case LOG_INFO:
-			printf("INFO ");
+			fprintf(out, "INFO ");
 			break;
 		case LOG_DEBUG:
 		default:
 			break;
 		}
-		if (level <= LOG_ERROR) {
-			vfprintf(stderr, format, args);
-			fprintf(stderr, "\n");
-		} else {
-			vprintf(format, args);
-			printf("\n");
-		}
+		vfprintf(out, format, args);
+		fprintf(out, "\n");
 	}
 }
 
