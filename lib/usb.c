@@ -559,7 +559,7 @@ static void usbdali_next(UsbDaliPtr dali) {
 static void usbdali_receive_callback(struct libusb_transfer *transfer) {
 	UsbDaliPtr dali = (UsbDaliPtr) transfer->user_data;
 
-	log_info("Received data from device (status=0x%x - %s):", transfer->status, libusb_status_string(transfer->status));
+	log_debug("Received data from device (status=0x%x - %s):", transfer->status, libusb_status_string(transfer->status));
 	if (log_debug_enabled()) {
 		hexdump(transfer->buffer, transfer->actual_length);
 		usbdali_print_in(transfer->buffer, transfer->actual_length);
@@ -625,7 +625,7 @@ static void usbdali_receive_callback(struct libusb_transfer *transfer) {
 										break;
 								}
 							} else {
-								log_warn("Got response with sequence number different from transfer");
+								log_warn("Got response with sequence number (%d) different from transfer (%d)", in.seqnum, dali->send_transfer->seq_num);
 							}
 						} else {
 							log_warn("Got response while no send transfer was active");
@@ -648,6 +648,7 @@ static void usbdali_receive_callback(struct libusb_transfer *transfer) {
 		case LIBUSB_TRANSFER_STALL:
 		case LIBUSB_TRANSFER_NO_DEVICE:
 		case LIBUSB_TRANSFER_OVERFLOW:
+			log_warn("Error receiving data from device (status=0x%x - %s):", transfer->status, libusb_status_string(transfer->status));
 			if (dali->send_transfer) {
 				dali->req_callback(USBDALI_RECEIVE_ERROR, dali->send_transfer->request, 0xffff, dali->send_transfer->arg);
 				//dali->send_transfer->transfer = NULL;
@@ -683,7 +684,7 @@ static int usbdali_receive(UsbDaliPtr dali) {
 static void usbdali_send_callback(struct libusb_transfer *transfer) {
 	UsbDaliPtr dali = transfer->user_data;
 
-	log_info("Sent data to device (status=0x%x - %s)", transfer->status, libusb_status_string(transfer->status));
+	log_debug("Sent data to device (status=0x%x - %s)", transfer->status, libusb_status_string(transfer->status));
 
 	free(transfer->buffer);
 
@@ -692,6 +693,7 @@ static void usbdali_send_callback(struct libusb_transfer *transfer) {
 			// ok
 			break;
 		case LIBUSB_TRANSFER_TIMED_OUT:
+			log_warn("Sending data to device timed out");
 			dali->req_callback(USBDALI_SEND_TIMEOUT, dali->send_transfer->request, 0xffff, dali->send_transfer->arg);
 			//dali->send_transfer->transfer = NULL;
 			usbdali_transfer_free(dali->send_transfer);
@@ -702,6 +704,7 @@ static void usbdali_send_callback(struct libusb_transfer *transfer) {
 		case LIBUSB_TRANSFER_STALL:
 		case LIBUSB_TRANSFER_NO_DEVICE:
 		case LIBUSB_TRANSFER_OVERFLOW:
+			log_warn("Error sending data to device (status=0x%x - %s):", transfer->status, libusb_status_string(transfer->status));
 			dali->req_callback(USBDALI_SEND_ERROR, dali->send_transfer->request, 0xffff, dali->send_transfer->arg);
 			//dali->send_transfer->transfer = NULL;
 			usbdali_transfer_free(dali->send_transfer);
@@ -719,7 +722,7 @@ static void usbdali_send_callback(struct libusb_transfer *transfer) {
 static int usbdali_send(UsbDaliPtr dali, UsbDaliTransfer *transfer) {
 	if (dali && transfer && !dali->send_transfer) {
 		if (dali->recv_transfer) {
-			libusb_cancel_transfer(dali->recv_transfer);
+			//libusb_cancel_transfer(dali->recv_transfer);
 		}
 
 		unsigned char *buffer = malloc(USBDALI_LENGTH);

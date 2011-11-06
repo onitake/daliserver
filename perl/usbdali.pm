@@ -100,8 +100,17 @@ sub receive {
 	} else {
 		my $packet;
 		$self->{socket}->read($packet, 2);
-		my ($address, $cmd) = unpack('CC', $packet);
-		return { address => $address, command => $cmd };
+		my ($status, $response) = unpack('CC', $packet);
+		my $ret = { status => $status, response => $response };
+		given ($status) {
+			when (0) {
+				$ret->{status} = 'ok';
+			}
+			when (1) {
+				$ret->{status} = 'error';
+			}
+		}
+		return $ret;
 	}
 }
 

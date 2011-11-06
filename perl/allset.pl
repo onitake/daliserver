@@ -19,6 +19,15 @@ if ($dim > 254) {
 }
 
 my $dali = usbdali->new('localhost');
-$dali->connect();
-$dali->send(usbdali->make_dim('broadcast', $dim));
-$dali->disconnect();
+if ($dali->connect()) {
+	$dali->send(usbdali->make_dim('broadcast', $dim));
+	my $resp = $dali->receive();
+	if ($resp) {
+		print("Received status:$resp->{status} response:$resp->{response}\n");
+	} else {
+		print("Receive error\n");
+	}
+	$dali->disconnect();
+} else {
+	print("Can't connect\n");
+}
