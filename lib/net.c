@@ -51,7 +51,6 @@ struct Connection {
 	char *buffer;
 	int waiting;
 };
-typedef struct Connection *ConnectionPtr;
 
 // Queue up 50 connections at most
 const unsigned int MAX_CONNECTIONS = 50;
