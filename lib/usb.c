@@ -695,9 +695,6 @@ static void usbdali_send_callback(struct libusb_transfer *transfer) {
 		case LIBUSB_TRANSFER_TIMED_OUT:
 			log_warn("Sending data to device timed out");
 			dali->req_callback(USBDALI_SEND_TIMEOUT, dali->send_transfer->request, 0xffff, dali->send_transfer->arg);
-			//dali->send_transfer->transfer = NULL;
-			usbdali_transfer_free(dali->send_transfer);
-			dali->send_transfer = NULL;
 			break;
 		case LIBUSB_TRANSFER_ERROR:
 		case LIBUSB_TRANSFER_CANCELLED:
@@ -706,13 +703,13 @@ static void usbdali_send_callback(struct libusb_transfer *transfer) {
 		case LIBUSB_TRANSFER_OVERFLOW:
 			log_warn("Error sending data to device (status=0x%x - %s):", transfer->status, libusb_status_string(transfer->status));
 			dali->req_callback(USBDALI_SEND_ERROR, dali->send_transfer->request, 0xffff, dali->send_transfer->arg);
-			//dali->send_transfer->transfer = NULL;
-			usbdali_transfer_free(dali->send_transfer);
-			dali->send_transfer = NULL;
 			break;
 	}
 	
 	libusb_free_transfer(transfer);
+	//dali->send_transfer->transfer = NULL;
+	usbdali_transfer_free(dali->send_transfer);
+	dali->send_transfer = NULL;
 
 	if (!dali->shutdown) {
 		usbdali_next(dali);
