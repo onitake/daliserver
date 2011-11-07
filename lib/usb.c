@@ -394,8 +394,8 @@ UsbDaliPtr usbdali_open(libusb_context *context, DispatchPtr dispatch) {
 							endpoint_out = config->interface[0].altsetting[0].endpoint[0].bEndpointAddress;
 							endpoint_in = config->interface[0].altsetting[0].endpoint[1].bEndpointAddress;
 						}
-						log_info("Input endpoint: 0x%02x", endpoint_in);
-						log_info("Output endpoint: 0x%02x", endpoint_out);
+						log_debug("Input endpoint: 0x%02x", endpoint_in);
+						log_debug("Output endpoint: 0x%02x", endpoint_out);
 
 						libusb_free_config_descriptor(config);
 

@@ -98,7 +98,7 @@ int main(int argc, const char **argv) {
 	}
 	ipc_register(killsocket, dispatch);
 
-	log_debug("Waiting for events");
+	log_info("Server ready, waiting for events");
 	running = 1;
 	signal(SIGTERM, signal_handler);
 	signal(SIGINT, signal_handler);
