@@ -66,25 +66,15 @@ void usbdali_close(UsbDaliPtr dali);
 // Enqueue a Dali command
 // cbarg is the arg argument that will be passed to the inband callback
 UsbDaliError usbdali_queue(UsbDaliPtr dali, DaliFramePtr frame, void *cbarg);
-// Handle pending events, submit a receive request if no transfer is active.
-// The handler will block until the handler timeout expires or an I/O event occurs.
-// You should call this in a loop.
-//UsbDaliError usbdali_handle(UsbDaliPtr dali);
 // Set the handler timeout (in msec, default 100)
 // 0 is supposed to mean 'forever', but this isn't implemented yet.
 void usbdali_set_handler_timeout(UsbDaliPtr dali, unsigned int timeout);
 // Set the maximum queue size (default and maximum 255)
 void usbdali_set_queue_size(UsbDaliPtr dali, unsigned int size);
-// Enable/disable debug messages (default: disabled)
-//void usbdali_set_debug(UsbDaliPtr dali, int enable);
 // Sets the out of band message callback
 void usbdali_set_outband_callback(UsbDaliPtr dali, UsbDaliOutBandCallback callback, void *arg);
 // Sets the in band message callback
 void usbdali_set_inband_callback(UsbDaliPtr dali, UsbDaliInBandCallback callback);
-// Sets the external event file descriptor and its callback
-// It will be polled for input and error conditions; if an error occured,
-// the callback closed argument will be 1, 0 otherwise.
-//void usbdali_set_event_callback(UsbDaliPtr dali, int fd, UsbDaliEventCallback callback, void *arg);
 // Returns the next timeout to use for polling in msecs, -1 if no timeout is active
 int usbdali_get_timeout(UsbDaliPtr dali);
 
