@@ -15,21 +15,22 @@ standardized by the DALI working group (DALI-AG), a subsidiary of the German
 ZVEI (Zentralverband Elektrotechnik- und Elektronikindustrie e.V.).
 It allows a wide range of lighting control applications, such as switching
 lamps in groups, automatic leveling in response to daylight intensity,
-integration into home-automation system.
+and integration into home automation systems.
 
 daliserver is a command multiplexing server for the Tridonic DALI USB adapter,
-allowing access to a DALI bus from any USB-equipped computer running a POSIX
-and libusb compatible operating system.
+allowing access to a DALI bus from any USB-equipped computer that supports
+libusb. Note however that so far, only Linux and Mac OS X have been tested.
 
 2. Quickstart
 -------------
 
-If you got daliserver in binary form, you can skip the next section and go
+If you received daliserver in binary form, you can skip the next section and go
 straight to "Running daliserver".
 
 To compile daliserver, you need GNU autotools, a C99 compliant C compiler
 with thread support, libusb 1.x, and associated development packages.
-For Debian, this is roughly: build-essential, libusb-1.0-0, libusb-1.0-0-dev
+For Debian based Linux operating systems, you need to install
+build-essential autoconf libusb-1.0-0 libusb-1.0-0-dev
 
 To generate the configure script and makefile templates, run
 autoreconf
@@ -42,17 +43,18 @@ make
 This should produce the daliserver binary in src/.
 
 Running daliserver:
-No command line options are accepted, just run it from a terminal to see
-its debugging output. If you want more verbose debug messages, uncomment the
-corresponding line in the Makefile.
+No command line options are accepted, just run daliserver from a terminal to
+see its debugging output. If you want more verbose debug messages, run
+./configure --enable-debug
+before make.
 
-Then have a look in the perl/ subdirectory for example Perl scripts.
+Then have a look into the perl/ subdirectory for example Perl scripts.
 usbdali.pm is a Perl module that can handle construction of DALI messages and
 communication with the daliserver. Some examples are provided too:
 alloff.pl - Sends a turn off broadcast message
 allon.pl - Sends a turn on broadcast message, but no light level (lamps might
 still be at 0 after sending this)
-allset.pl - Sends a lamp level broadcast message
+allset.pl - Sends a lamp level broadcast message and displays the response
 lampoff.pl - Sends a turn off command to a specific lamp
 lampset.pl - Sends a level to a specific lamp
 
@@ -60,26 +62,27 @@ lampset.pl - Sends a level to a specific lamp
 -------------------------
 
 To communicate with daliserver, you need to connect to it first.
-It listens on localhost (IPv4 only) on TCP port 55825 (0xDA11).
+It listens on 127.0.0.1 on TCP port 55825 (0xDA11).
 
 The protocol is simple, only two bytes are required: the bus address and the
 command code. Note however that DALI uses a specific encoding scheme, the
-address field is used for other purposes.
+address field is used for other purposes as well.
 
 When not issuing commands, you can listen for messages from other devices
-captured on the bus. These message will come in the form:
+captured on the bus. These messages will come in the form:
   address:uint8_t
   command:uint8_t
 
-To enque a command to be transmitted on the bus, just send this:
+To enqueue a command to be transmitted on the bus, just send this:
   address:uint8_t
   command:uint8_t
 
-A response containing the status code from the target device will be sent back:
+A response containing the return code from the target device will be sent back:
+  response:uint8_t
   status:uint8_t
-  0:uint8_t
+The status code is 0 for a succesful transfer or 1 if there was an error.
 
-There is no other padding, all messages have a fixed size of 2 bytes.
+There is no padding, all messages have a fixed size of 2 bytes.
 
 eDALI commands aren't supported for now.
 

@@ -44,9 +44,9 @@
 // }
 // struct Response {
 //     response:uint8_t
-//     status:uint8_t
+//     status:Status
 // }
-// enum Status {
+// enum Status:uint8_t {
 //     0:ok
 //     1:error
 // }
