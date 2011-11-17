@@ -34,7 +34,7 @@ AC_TYPE_UINT8_T
 # Checks for library functions.
 AC_FUNC_MALLOC
 AC_FUNC_REALLOC
-AC_CHECK_FUNCS([memset socket strerror localtime_r])
+AC_CHECK_FUNCS([memset socket strerror localtime_r getopt strtol])
 
 # Checks for libusb
 PKG_CHECK_MODULES([LIBUSB10], [libusb-1.0 >= 1.0.8], [], [
