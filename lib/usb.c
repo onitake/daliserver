@@ -65,6 +65,7 @@ struct UsbDali {
 	//int debug;
 	ssize_t event_index;
 	int shutdown;
+	int sending;
 };
 
 typedef struct {
@@ -441,6 +442,7 @@ UsbDaliPtr usbdali_open(libusb_context *context, DispatchPtr dispatch) {
 												//dali->debug = 0;
 												dali->event_index = -1;
 												dali->shutdown = 0;
+												dali->sending = 0;
 
 												size_t i;
 												for (i = 0; usbfds[i]; i++) {
@@ -542,11 +544,17 @@ void usbdali_close(UsbDaliPtr dali) {
 static void usbdali_next(UsbDaliPtr dali) {
 	log_debug("Handling requests");
 	if (!dali->send_transfer) {
-		log_debug("No send transfer active");
-		UsbDaliTransfer *transfer = list_dequeue(dali->queue);
+		UsbDaliTransfer *transfer = NULL;
+		if (!dali->sending) {
+			log_debug("No send transfer active");
+			transfer = list_dequeue(dali->queue);
+		}
 		if (transfer) {
 			log_debug("Dequeued transfer");
-			usbdali_send(dali, transfer);
+			if (usbdali_send(dali, transfer) != 0) {
+				log_warn("Error sending transfer");
+				list_enqueue(dali->queue, transfer);
+			}
 		} else {
 			if (!dali->recv_transfer) {
 				log_debug("No receive transfer active");
@@ -710,8 +718,9 @@ static void usbdali_send_callback(struct libusb_transfer *transfer) {
 	
 	libusb_free_transfer(transfer);
 	//dali->send_transfer->transfer = NULL;
-	usbdali_transfer_free(dali->send_transfer);
-	dali->send_transfer = NULL;
+	//usbdali_transfer_free(dali->send_transfer);
+	//dali->send_transfer = NULL;
+	dali->sending = 0;
 
 	if (!dali->shutdown) {
 		usbdali_next(dali);
@@ -719,7 +728,7 @@ static void usbdali_send_callback(struct libusb_transfer *transfer) {
 }
 
 static int usbdali_send(UsbDaliPtr dali, UsbDaliTransfer *transfer) {
-	if (dali && transfer && !dali->send_transfer) {
+	if (dali && transfer && !dali->send_transfer && !dali->sending) {
 		if (dali->recv_transfer) {
 			//libusb_cancel_transfer(dali->recv_transfer);
 		}
@@ -745,6 +754,7 @@ static int usbdali_send(UsbDaliPtr dali, UsbDaliTransfer *transfer) {
 			usbdali_print_out(buffer, USBDALI_LENGTH);
 			printf("\n");
 		}
+		dali->sending = 1;
 		dali->send_transfer = transfer;
 		dali->send_transfer->seq_num = dali->seq_num;
 		if (dali->seq_num == 0xff) {
