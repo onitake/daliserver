@@ -49,6 +49,8 @@ void log_printf(unsigned int level, const char *format, ...);
 // Sets the log level
 // Setting a level higher than what was compiled in has no effect
 void log_set_level(unsigned int level);
+// Gets the current log level
+unsigned int log_get_level();
 
 // It is recommended to use these convenience functions instead of directly calling log_printf().
 // They are optimized out if the maximum debug level set during compilation is lower.
@@ -77,7 +79,7 @@ void log_set_level(unsigned int level);
 #define log_debug_enabled() 0
 #else
 #define log_debug(format...) log_printf(LOG_DEBUG, format)
-#define log_debug_enabled() 1
+#define log_debug_enabled() (log_get_level() >= LOG_DEBUG)
 #endif
 
 #endif /*_LOG_H*/

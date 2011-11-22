@@ -84,5 +84,13 @@ void log_printf(unsigned int level, const char *format, ...) {
 }
 
 void log_set_level(unsigned int level) {
-	loglevel = level;
+	if (level > LOG_LEVEL_MAX) {
+		loglevel = LOG_LEVEL_MAX;
+	} else {
+		loglevel = level;
+	}
+}
+
+unsigned int log_get_level() {
+	return loglevel;
 }
