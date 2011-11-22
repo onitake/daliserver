@@ -543,22 +543,40 @@ void usbdali_close(UsbDaliPtr dali) {
 
 static void usbdali_next(UsbDaliPtr dali) {
 	log_debug("Handling requests");
-	if (!dali->send_transfer) {
-		UsbDaliTransfer *transfer = NULL;
-		if (!dali->sending) {
-			log_debug("No send transfer active");
-			transfer = list_dequeue(dali->queue);
+	if (dali->sending) {
+		if (!dali->recv_transfer) {
+			log_debug("No receive transfer active");
+			usbdali_receive(dali);
 		}
-		if (transfer) {
-			log_debug("Dequeued transfer");
-			if (usbdali_send(dali, transfer) != 0) {
-				log_warn("Error sending transfer");
-				list_enqueue(dali->queue, transfer);
-			}
-		} else {
-			if (!dali->recv_transfer) {
-				log_debug("No receive transfer active");
-				usbdali_receive(dali);
+	} else {
+		if (!dali->send_transfer) {
+			log_debug("No send transfer active");
+			if (list_length(dali->queue) > 0) {
+				log_debug("Transfer in queue");
+				if (dali->recv_transfer) {
+					log_debug("Canceling receive transfer");
+					libusb_cancel_transfer(dali->recv_transfer);
+				} else {
+					UsbDaliTransfer *transfer = list_dequeue(dali->queue);
+					if (transfer) {
+						log_debug("Dequeued transfer");
+						if (usbdali_send(dali, transfer) != 0) {
+							log_warn("Sending transfer failed");
+							// Requeue
+							//list_enqueue(dali->queue, transfer);
+						}
+					} else {
+						if (!dali->recv_transfer) {
+							log_debug("No receive transfer active");
+							usbdali_receive(dali);
+						}
+					}
+				}
+			} else {
+				if (!dali->recv_transfer) {
+					log_debug("No transfer in queue");
+					usbdali_receive(dali);
+				}
 			}
 		}
 	}
