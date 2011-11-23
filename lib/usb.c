@@ -601,52 +601,53 @@ static void usbdali_receive_callback(struct libusb_transfer *transfer) {
 			if (unpack(">CC CCCSC", (const char *) transfer->buffer, &length, &in.direction, &in.type, &in.ecommand, &in.address, &in.command, &in.status, &in.seqnum) == -1) {
 				log_error("Invalid packet received");
 			} else {
-				switch (in.direction) {
+				if (dali) {
+					switch (in.direction) {
 					case USBDALI_DIRECTION_DALI:
 						switch (in.type) {
-							case USBDALI_TYPE_16BIT_TRANSFER: {
-								DaliFramePtr frame = daliframe_new(in.address, in.command);
-								dali->bcast_callback(USBDALI_SUCCESS, frame, in.status, dali->bcast_arg);
-								daliframe_free(frame);
-							} break;
-							case USBDALI_TYPE_24BIT_TRANSFER: {
-								DaliFramePtr frame = daliframe_enew(in.ecommand, in.address, in.command);
-								dali->bcast_callback(USBDALI_SUCCESS, frame, in.status, dali->bcast_arg);
-								daliframe_free(frame);
-							} break;
-							default:
-								log_info("Not handling unknown message type 0x%02x", in.type);
-								break;
+						case USBDALI_TYPE_16BIT_TRANSFER: {
+							DaliFramePtr frame = daliframe_new(in.address, in.command);
+							dali->bcast_callback(USBDALI_SUCCESS, frame, in.status, dali->bcast_arg);
+							daliframe_free(frame);
+						} break;
+						case USBDALI_TYPE_24BIT_TRANSFER: {
+							DaliFramePtr frame = daliframe_enew(in.ecommand, in.address, in.command);
+							dali->bcast_callback(USBDALI_SUCCESS, frame, in.status, dali->bcast_arg);
+							daliframe_free(frame);
+						} break;
+						default:
+							log_info("Not handling unknown message type 0x%02x", in.type);
+							break;
 						}
 						break;
 					case USBDALI_DIRECTION_USB:
 						if (dali->transaction) {
 							if (dali->transaction->seq_num == in.seqnum) {
 								switch (in.type) {
-									case USBDALI_TYPE_16BIT_COMPLETE:
-										log_debug("Transfer completed with status 0x%04x", in.status);
-										// Transfer completed, do not tail another cancel
-										usbdali_transaction_free(dali->transaction);
-										dali->transaction = NULL;
-										break;
-									case USBDALI_TYPE_24BIT_COMPLETE:
-										log_debug("Transfer completed with status 0x%04x", in.status);
-										usbdali_transaction_free(dali->transaction);
-										dali->transaction = NULL;
-										break;
-									case USBDALI_TYPE_16BIT_TRANSFER: {
-										DaliFramePtr frame = daliframe_new(in.address, in.command);
-										dali->req_callback(USBDALI_SUCCESS, frame, in.status, dali->transaction->arg);
-										daliframe_free(frame);
-									} break;
-									case USBDALI_TYPE_24BIT_TRANSFER: {
-										DaliFramePtr frame = daliframe_enew(in.ecommand, in.address, in.command);
-										dali->req_callback(USBDALI_SUCCESS, frame, in.status, dali->transaction->arg);
-										daliframe_free(frame);
-									} break;
-									default:
-										log_info("Not handling unknown message type 0x%02x", in.type);
-										break;
+								case USBDALI_TYPE_16BIT_COMPLETE:
+									log_debug("Transfer completed with status 0x%04x", in.status);
+									// Transfer completed, do not tail another cancel
+									usbdali_transaction_free(dali->transaction);
+									dali->transaction = NULL;
+									break;
+								case USBDALI_TYPE_24BIT_COMPLETE:
+									log_debug("Transfer completed with status 0x%04x", in.status);
+									usbdali_transaction_free(dali->transaction);
+									dali->transaction = NULL;
+									break;
+								case USBDALI_TYPE_16BIT_TRANSFER: {
+									DaliFramePtr frame = daliframe_new(in.address, in.command);
+									dali->req_callback(USBDALI_SUCCESS, frame, in.status, dali->transaction->arg);
+									daliframe_free(frame);
+								} break;
+								case USBDALI_TYPE_24BIT_TRANSFER: {
+									DaliFramePtr frame = daliframe_enew(in.ecommand, in.address, in.command);
+									dali->req_callback(USBDALI_SUCCESS, frame, in.status, dali->transaction->arg);
+									daliframe_free(frame);
+								} break;
+								default:
+									log_info("Not handling unknown message type 0x%02x", in.type);
+									break;
 								}
 							} else {
 								log_warn("Got response with sequence number (%d) different from transaction (%d)", in.seqnum, dali->transaction->seq_num);
@@ -655,16 +656,19 @@ static void usbdali_receive_callback(struct libusb_transfer *transfer) {
 							log_warn("Got response while no send transfer was active");
 						}
 						break;
+					}
 				}
 			}
 		} break;
 		case LIBUSB_TRANSFER_TIMED_OUT:
-			if (dali->transaction) {
-				dali->req_callback(USBDALI_RECEIVE_TIMEOUT, dali->transaction->request, 0xffff, dali->transaction->arg);
-				usbdali_transaction_free(dali->transaction);
-				dali->transaction = NULL;
+			if (dali) {
+				if (dali->transaction) {
+					dali->req_callback(USBDALI_RECEIVE_TIMEOUT, dali->transaction->request, 0xffff, dali->transaction->arg);
+					usbdali_transaction_free(dali->transaction);
+					dali->transaction = NULL;
+				}
+				// Do nothing for out of band receives - a new one will be sent from the next handle call
 			}
-			// Do nothing for out of band receives - a new one will be sent from the next handle call
 			break;
 		case LIBUSB_TRANSFER_CANCELLED:
 			// What do we do here if a transaction was active?
@@ -674,25 +678,29 @@ static void usbdali_receive_callback(struct libusb_transfer *transfer) {
 		case LIBUSB_TRANSFER_NO_DEVICE:
 		case LIBUSB_TRANSFER_OVERFLOW:
 			log_warn("Error receiving data from device (status=0x%x - %s):", transfer->status, libusb_status_string(transfer->status));
-			if (dali->transaction) {
-				dali->req_callback(USBDALI_RECEIVE_ERROR, dali->transaction->request, 0xffff, dali->transaction->arg);
-				usbdali_transaction_free(dali->transaction);
-				dali->transaction = NULL;
-			} else {
-				dali->bcast_callback(USBDALI_RECEIVE_ERROR, NULL, 0xffff, dali->bcast_arg);
+			if (dali) {
+				if (dali->transaction) {
+					dali->req_callback(USBDALI_RECEIVE_ERROR, dali->transaction->request, 0xffff, dali->transaction->arg);
+					usbdali_transaction_free(dali->transaction);
+					dali->transaction = NULL;
+				} else {
+					dali->bcast_callback(USBDALI_RECEIVE_ERROR, NULL, 0xffff, dali->bcast_arg);
+				}
 			}
 			break;
 	}
 
 	free(transfer->buffer);
-	if (transfer != dali->recv_transfer && dali->recv_transfer != NULL) {
-		log_warn("Invalid receive transfer. Use the source, Luke!");
-		libusb_free_transfer(dali->recv_transfer);
+	if (dali) {
+		if (transfer != dali->recv_transfer && dali->recv_transfer != NULL) {
+			log_warn("Invalid receive transfer. Use the source, Luke!");
+			libusb_free_transfer(dali->recv_transfer);
+		}
 		dali->recv_transfer = NULL;
 	}
 	libusb_free_transfer(transfer);
 
-	if (!dali->shutdown) {
+	if (dali && !dali->shutdown) {
 		usbdali_next(dali);
 	}
 }
@@ -721,9 +729,11 @@ static void usbdali_send_callback(struct libusb_transfer *transfer) {
 			break;
 		case LIBUSB_TRANSFER_TIMED_OUT:
 			log_warn("Sending data to device timed out");
-			dali->req_callback(USBDALI_SEND_TIMEOUT, dali->transaction->request, 0xffff, dali->transaction->arg);
-			usbdali_transaction_free(dali->transaction);
-			dali->transaction = NULL;
+			if (dali) {
+				dali->req_callback(USBDALI_SEND_TIMEOUT, dali->transaction->request, 0xffff, dali->transaction->arg);
+				usbdali_transaction_free(dali->transaction);
+				dali->transaction = NULL;
+			}
 			break;
 		case LIBUSB_TRANSFER_CANCELLED:
 			// What do we do here if a transaction was active?
@@ -733,21 +743,25 @@ static void usbdali_send_callback(struct libusb_transfer *transfer) {
 		case LIBUSB_TRANSFER_NO_DEVICE:
 		case LIBUSB_TRANSFER_OVERFLOW:
 			log_warn("Error sending data to device (status=0x%x - %s):", transfer->status, libusb_status_string(transfer->status));
-			dali->req_callback(USBDALI_SEND_ERROR, dali->transaction->request, 0xffff, dali->transaction->arg);
-			usbdali_transaction_free(dali->transaction);
-			dali->transaction = NULL;
+			if (dali) {
+				dali->req_callback(USBDALI_SEND_ERROR, dali->transaction->request, 0xffff, dali->transaction->arg);
+				usbdali_transaction_free(dali->transaction);
+				dali->transaction = NULL;
+			}
 			break;
 	}
 	
 	free(transfer->buffer);
-	if (transfer != dali->send_transfer && dali->send_transfer != NULL) {
-		log_warn("Invalid send transfer. Use the source, Luke!");
-		libusb_free_transfer(dali->send_transfer);
+	if (dali) {
+		if (transfer != dali->send_transfer && dali->send_transfer != NULL) {
+			log_warn("Invalid send transfer. Use the source, Luke!");
+			libusb_free_transfer(dali->send_transfer);
+		}
 		dali->send_transfer = NULL;
 	}
 	libusb_free_transfer(transfer);
 
-	if (!dali->shutdown) {
+	if (dali && !dali->shutdown) {
 		usbdali_next(dali);
 	}
 }
