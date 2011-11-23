@@ -546,12 +546,15 @@ static void usbdali_next(UsbDaliPtr dali) {
 	if (!dali->send_transfer) {
 		log_debug("No send transfer active");
 		if (dali->transaction) {
+			log_debug("Transaction active");
 			if (!dali->recv_transfer) {
 				log_debug("No receive transfer active");
 				usbdali_receive(dali);
 			}
 		} else {
+			log_debug("No transaction active");
 			if (list_length(dali->queue) > 0) {
+				log_debug("Transactions in queue");
 				if (dali->recv_transfer) {
 					log_debug("Canceling receive transfer before queueing send transfer");
 					libusb_cancel_transfer(dali->recv_transfer);
@@ -561,6 +564,7 @@ static void usbdali_next(UsbDaliPtr dali) {
 						log_debug("Dequeued transaction");
 						usbdali_send(dali, transaction);
 					} else {
+						log_warn("No transaction found?");
 						if (!dali->recv_transfer) {
 							log_debug("No receive transfer active");
 							usbdali_receive(dali);
@@ -568,6 +572,7 @@ static void usbdali_next(UsbDaliPtr dali) {
 					}
 				}
 			} else {
+				log_debug("No transaction in queue");
 				if (!dali->recv_transfer) {
 					log_debug("No receive transfer active");
 					usbdali_receive(dali);
