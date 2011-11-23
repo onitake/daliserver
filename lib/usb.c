@@ -661,8 +661,10 @@ static void usbdali_receive_callback(struct libusb_transfer *transfer) {
 			}
 			// Do nothing for out of band receives - a new one will be sent from the next handle call
 			break;
-		case LIBUSB_TRANSFER_ERROR:
 		case LIBUSB_TRANSFER_CANCELLED:
+			// What do we do here if a transaction was active?
+			break;
+		case LIBUSB_TRANSFER_ERROR:
 		case LIBUSB_TRANSFER_STALL:
 		case LIBUSB_TRANSFER_NO_DEVICE:
 		case LIBUSB_TRANSFER_OVERFLOW:
@@ -718,8 +720,10 @@ static void usbdali_send_callback(struct libusb_transfer *transfer) {
 			usbdali_transaction_free(dali->transaction);
 			dali->transaction = NULL;
 			break;
-		case LIBUSB_TRANSFER_ERROR:
 		case LIBUSB_TRANSFER_CANCELLED:
+			// What do we do here if a transaction was active?
+			break;
+		case LIBUSB_TRANSFER_ERROR:
 		case LIBUSB_TRANSFER_STALL:
 		case LIBUSB_TRANSFER_NO_DEVICE:
 		case LIBUSB_TRANSFER_OVERFLOW:
