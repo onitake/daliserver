@@ -21,6 +21,11 @@ daliserver is a command multiplexing server for the Tridonic DALI USB adapter,
 allowing access to a DALI bus from any USB-equipped computer that supports
 libusb. Note however that so far, only Linux and Mac OS X have been tested.
 
+daliserver is copyright (c) 2011 by its authors (see below).
+Licensing terms can be found in the file LICENSE that you should have received
+with the program or source code.
+The source code is hosted on https://github.com/onitake/daliserver
+
 2. Quickstart
 -------------
 
@@ -43,10 +48,18 @@ make
 This should produce the daliserver binary in src/.
 
 Running daliserver:
-No command line options are accepted, just run daliserver from a terminal to
-see its debugging output. If you want more verbose debug messages, run
-./configure --enable-debug
-before make.
+daliserver supports a handful of command line options.
+-d <level> sets the debug level, supported values are fatal, error, warn, info
+If debug output was enabled during compilation (./configure --enable-debug),
+the value debug is also accepted. info is the default.
+Note that debug output is very verbose, so you should probably stick to info.
+-n enables dry run mode. No USB device is opened, only the network listener
+is installed. Mainly intended for testing.
+-l <address> sets the IP address to listen on. For security reasons, the
+default is 127.0.0.1. You should only accept connections from outside
+localhost if you know what you are doing.
+-p <port> changes the port from the default of 55825 (0xDA11).
+You can also keep the default settings and run daliserver as-is (recommended).
 
 Then have a look into the perl/ subdirectory for example Perl scripts.
 usbdali.pm is a Perl module that can handle construction of DALI messages and
@@ -62,11 +75,12 @@ lampset.pl - Sends a level to a specific lamp
 -------------------------
 
 To communicate with daliserver, you need to connect to it first.
-It listens on 127.0.0.1 on TCP port 55825 (0xDA11).
+If you didn't specify any options, it listens on TCP 127.0.0.1:55825
 
 The protocol is simple, only two bytes are required: the bus address and the
 command code. Note however that DALI uses a specific encoding scheme, the
-address field is used for other purposes as well.
+address field is used for other purposes as well. Refer to perl/usbdali.pm
+for example code on how to construct messages.
 
 When not issuing commands, you can listen for messages from other devices
 captured on the bus. These messages will come in the form:
@@ -81,6 +95,7 @@ A response containing the return code from the target device will be sent back:
   response:uint8_t
   status:uint8_t
 The status code is 0 for a succesful transfer or 1 if there was an error.
+If the target device sent a response, it will be set in the response field.
 
 There is no padding, all messages have a fixed size of 2 bytes.
 
@@ -97,4 +112,7 @@ Johannes <johannes@deragent.net>
 
 http://www.dali-ag.org - DALI working group homepage
 IEC 62386 - The official standard (requires fee)
+http://www.tridonic.com/com/en/2192.asp - Tridonic masterCONFIGURATOR software
+for Microsoft Windows, was used to reverse engineer the communication protocol
+with DALI USB and to test out DALI commands
 

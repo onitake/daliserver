@@ -1,0 +1,39 @@
+.Dd November 24, 2011
+.Os None
+.Dt DALISERVER 1
+.Sh NAME
+.Nm daliserver
+.Nd command multiplexer for Tridonic USB DALI adapter
+.Sh SYNOPSIS
+.Nm daliserver
+.Op Fl d Ar loglevel
+.Op Fl l Ar address
+.Op Fl p Ar port
+.Op Fl n
+.Sh DESCRIPTION
+.Bl -tag
+.It Fl d Ar loglevel
+Specify the log level. Supported are: fatal, error, warn, info, debug.
+The default is info. debug is only supported if it was compiled in.
+.It Fl l Ar address
+Specify the listening address. The default is 127.0.0.1.
+.It Fl p Ar port
+Specify the listening TCP port. The default is 55825 (0xDA11)
+.It Fl n
+Enable dry run mode. The USB device is not opened in this mode.
+Intended for debugging and testing
+.El
+.Sh AUTHORS
+.Bl -item
+.It
+Gregor Riepl <onitake@gmail.com>
+.It
+Johannes <johannes@deragent.net>
+.El
+.Sh BUGS
+Probably a lot. The communication protocol was reverse engineered by
+running the adapter's Windows software in a virtual machine and analyzing
+the data that was transmitted on the USB bus. The DALI standard is not
+publicly available either, so all the info on the DALI protocol was
+extracted from some microcontroller example code documentation and the USB
+dumps.
