@@ -27,52 +27,97 @@
 #include <stdio.h>
 #include <time.h>
 #include <string.h>
+#include <errno.h>
+#include <string.h>
+#include <syslog.h>
+#include <stdlib.h>
 
 #ifndef LOG_LEVEL_DEFAULT
 #ifdef DEBUG
-#define LOG_LEVEL_DEFAULT LOG_DEBUG
+#define LOG_LEVEL_DEFAULT LOG_LEVEL_DEBUG
 #else
-#define LOG_LEVEL_DEFAULT LOG_INFO
+#define LOG_LEVEL_DEFAULT LOG_LEVEL_INFO
 #endif
 #endif
 
 static unsigned int loglevel = LOG_LEVEL_DEFAULT;
+static unsigned int loglevel_file = LOG_LEVEL_DEFAULT;
+static unsigned int loglevel_syslog = LOG_LEVEL_ERROR;
+static FILE *fp_logfile = NULL;
+static int enabled_syslog = 0;
 
 void log_vprintf(unsigned int level, const char *format, va_list args) {
-	if (level <= loglevel && level <= LOG_LEVEL_MAX) {
-		time_t now = time(NULL);
-		FILE *out;
-		if (level <= LOG_ERROR) {
-			out = stderr;
-		} else {
-			out = stdout;
-		}
+	if (level <= LOG_LEVEL_MAX) {
+		if (level <= loglevel || (fp_logfile && level <= loglevel_file)) {
+			time_t now = time(NULL);
+			FILE *out;
+			if (level <= LOG_LEVEL_ERROR) {
+				out = stderr;
+			} else {
+				out = stdout;
+			}
+			char *datefmt = malloc(32);
 #ifdef HAVE_LOCALTIME_R
-		struct tm nowtm;
-		localtime_r(&now, &nowtm);
-		fprintf(out, "[%d-%02d-%02d %02d:%02d:%02d] ", nowtm.tm_year + 1900, nowtm.tm_mon, nowtm.tm_mday, nowtm.tm_hour, nowtm.tm_min, nowtm.tm_sec);
+			struct tm nowtm;
+			localtime_r(&now, &nowtm);
+			snprintf(datefmt, 32, "[%d-%02d-%02d %02d:%02d:%02d] ", nowtm.tm_year + 1900, nowtm.tm_mon, nowtm.tm_mday, nowtm.tm_hour, nowtm.tm_min, nowtm.tm_sec);
 #else
-		fprintf(out, "[%ld] ", now);
+			snprintf(datefmt, 32, "[%ld] ", now);
 #endif
-		switch (level) {
-		case LOG_FATAL:
-			fprintf(out, "!!FATAL!! ");
-			break;
-		case LOG_ERROR:
-			fprintf(out, "**ERROR** ");
-			break;
-		case LOG_WARN:
-			fprintf(out, "--WARNING-- ");
-			break;
-		case LOG_INFO:
-			fprintf(out, "INFO ");
-			break;
-		case LOG_DEBUG:
-		default:
-			break;
+			char *prefixfmt = NULL;
+			switch (level) {
+			case LOG_LEVEL_FATAL:
+				prefixfmt = strdup("!!FATAL!! ");
+				break;
+			case LOG_LEVEL_ERROR:
+				prefixfmt = strdup("**ERROR** ");
+				break;
+			case LOG_LEVEL_WARN:
+				prefixfmt = strdup("--WARNING-- ");
+				break;
+			case LOG_LEVEL_INFO:
+				prefixfmt = strdup("INFO ");
+				break;
+			case LOG_LEVEL_DEBUG:
+			default:
+				prefixfmt = strdup("");
+				break;
+			}
+			if (level <= loglevel) {
+				fprintf(out, "%s%s", datefmt, prefixfmt);
+				vfprintf(out, format, args);
+				fprintf(out, "\n");
+			}
+			if (fp_logfile && level <= loglevel_file) {
+				fprintf(fp_logfile, "%s%s", datefmt, prefixfmt);
+				vfprintf(fp_logfile, format, args);
+				fprintf(fp_logfile, "\n");
+			}
+			free(prefixfmt);
+			free(datefmt);
 		}
-		vfprintf(out, format, args);
-		fprintf(out, "\n");
+#ifdef HAVE_VSYSLOG
+		if (level <= loglevel_syslog) {
+			switch (level) {
+			case LOG_LEVEL_FATAL:
+				vsyslog(LOG_ALERT, format, args);
+				break;
+			case LOG_LEVEL_ERROR:
+				vsyslog(LOG_ERR, format, args);
+				break;
+			case LOG_LEVEL_WARN:
+				vsyslog(LOG_WARNING, format, args);
+				break;
+			case LOG_LEVEL_INFO:
+				vsyslog(LOG_INFO, format, args);
+				break;
+			case LOG_LEVEL_DEBUG:
+				vsyslog(LOG_DEBUG, format, args);
+			default:
+				break;
+			}
+		}
+#endif
 	}
 }
 
@@ -93,4 +138,52 @@ void log_set_level(unsigned int level) {
 
 unsigned int log_get_level() {
 	return loglevel;
+}
+
+int log_set_logfile(const char *logfile) {
+	if (logfile) {
+		FILE *fp = fopen(logfile, "a");
+		if (!fp) {
+			log_error("Error opening log file %s: %s", logfile, strerror(errno));
+			return -1;
+		} else {
+			if (fp_logfile) {
+				fclose(fp_logfile);
+			}
+			fp_logfile = fp;
+		}
+	} else {
+		if (fp_logfile) {
+			fclose(fp_logfile);
+			fp_logfile = NULL;
+		}
+	}
+	return 0;
+}
+
+void log_set_logfile_level(unsigned int level) {
+	if (level > LOG_LEVEL_MAX) {
+		loglevel_file = LOG_LEVEL_MAX;
+	} else {
+		loglevel_file = level;
+	}
+}
+
+void log_set_syslog(const char *name) {
+	if (enabled_syslog) {
+		closelog();
+		enabled_syslog = 0;
+	}
+	if (name) {
+		openlog(name, 0, LOG_DAEMON);
+		enabled_syslog = 1;
+	}
+}
+
+void log_set_syslog_level(unsigned int level) {
+	if (level > LOG_LEVEL_MAX) {
+		loglevel_syslog = LOG_LEVEL_MAX;
+	} else {
+		loglevel_syslog = level;
+	}
 }

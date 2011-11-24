@@ -18,7 +18,7 @@ CFLAGS="$CFLAGS $PTHREAD_CFLAGS"
 LIBS="$PTHREAD_LIBS $LIBS"
 
 # Checks for header files.
-AC_CHECK_HEADERS([arpa/inet.h netinet/in.h stdint.h stdlib.h string.h sys/param.h sys/socket.h unistd.h])
+AC_CHECK_HEADERS([arpa/inet.h netinet/in.h stdint.h stdlib.h string.h sys/param.h sys/socket.h unistd.h syslog.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_TYPE_INT16_T
@@ -34,7 +34,7 @@ AC_TYPE_UINT8_T
 # Checks for library functions.
 AC_FUNC_MALLOC
 AC_FUNC_REALLOC
-AC_CHECK_FUNCS([memset socket strerror localtime_r getopt strtol])
+AC_CHECK_FUNCS([memset socket strerror localtime_r getopt strtol vsyslog])
 
 # Checks for libusb
 PKG_CHECK_MODULES([LIBUSB10], [libusb-1.0 >= 1.0.8], [], [

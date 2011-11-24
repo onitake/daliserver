@@ -590,7 +590,7 @@ static void usbdali_receive_callback(struct libusb_transfer *transfer) {
 		if (log_debug_enabled()) {
 			hexdump(transfer->buffer, transfer->actual_length);
 		}
-		if (log_get_level() >= LOG_INFO) {
+		if (log_get_level() >= LOG_LEVEL_INFO) {
 			usbdali_print_in(transfer->buffer, transfer->actual_length);
 			printf("\n");
 		}
@@ -789,7 +789,7 @@ static int usbdali_send(UsbDaliPtr dali, UsbDaliTransaction *transaction) {
 		if (log_debug_enabled()) {
 			hexdump(buffer, USBDALI_LENGTH);
 		}
-		if (log_get_level() >= LOG_INFO) {
+		if (log_get_level() >= LOG_LEVEL_INFO) {
 			usbdali_print_out(buffer, USBDALI_LENGTH);
 			printf("\n");
 		}

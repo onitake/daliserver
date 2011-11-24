@@ -23,6 +23,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include <signal.h>
 #include <unistd.h>
 #include <string.h>
@@ -68,6 +69,8 @@ typedef struct {
 	char *address;
 	unsigned int loglevel;
 	int dryrun;
+	int syslog;
+	char *logfile;
 } Options;
 
 static IpcPtr killsocket;
@@ -80,8 +83,11 @@ static void net_frame_handler(void *arg, const char *buffer, size_t bufsize, Con
 static Options *parse_opt(int argc, char *const argv[]);
 static void free_opt(Options *opts);
 static void show_help();
+static void show_banner();
 
 int main(int argc, char *const argv[]) {
+	show_banner();
+
 	log_debug("Parsing options");
 	Options *opts = parse_opt(argc, argv);
 	if (!opts) {
@@ -89,6 +95,15 @@ int main(int argc, char *const argv[]) {
 		return -1;
 	}
 	log_set_level(opts->loglevel);
+	if (opts->logfile) {
+		log_set_logfile(opts->logfile);
+		log_set_logfile_level(LOG_LEVEL_MAX);
+	}
+#ifdef HAVE_VSYSLOG
+	if (opts->syslog) {
+		log_set_syslog("daliserver");
+	}
+#endif
 
 	log_info("Starting daliserver");
 
@@ -206,23 +221,25 @@ static Options *parse_opt(int argc, char *const argv[]) {
 	opts->address = strdup(NET_ADDRESS);
 	opts->port = NET_PORT;
 	opts->dryrun = 0;
-	opts->loglevel = LOG_INFO;
+	opts->loglevel = LOG_LEVEL_INFO;
+	opts->syslog = 0;
+	opts->logfile = NULL;
 
 	int opt;
 	opterr = 0;
-	while ((opt = getopt(argc, argv, "d:l:p:n")) != -1) {
+	while ((opt = getopt(argc, argv, "d:l:p:nsf:")) != -1) {
 		switch (opt) {
 		case 'd':
 			if (strcmp(optarg, "fatal") == 0) {
-				opts->loglevel = LOG_FATAL;
+				opts->loglevel = LOG_LEVEL_FATAL;
 			} else if (strcmp(optarg, "error") == 0) {
-				opts->loglevel = LOG_ERROR;
+				opts->loglevel = LOG_LEVEL_ERROR;
 			} else if (strcmp(optarg, "warn") == 0) {
-				opts->loglevel = LOG_WARN;
+				opts->loglevel = LOG_LEVEL_WARN;
 			} else if (strcmp(optarg, "info") == 0) {
-				opts->loglevel = LOG_INFO;
+				opts->loglevel = LOG_LEVEL_INFO;
 			} else if (strcmp(optarg, "debug") == 0) {
-				opts->loglevel = LOG_DEBUG;
+				opts->loglevel = LOG_LEVEL_DEBUG;
 			} else {
 				free_opt(opts);
 				return NULL;
@@ -238,6 +255,14 @@ static Options *parse_opt(int argc, char *const argv[]) {
 		case 'n':
 			opts->dryrun = 1;
 			break;
+#ifdef HAVE_VSYSLOG
+		case 's':
+			opts->syslog = 1;
+			break;
+#endif
+		case 'f':
+			opts->logfile = strdup(optarg);
+			break;
 		default:
 			free_opt(opts);
 			return NULL;
@@ -250,6 +275,7 @@ static Options *parse_opt(int argc, char *const argv[]) {
 static void free_opt(Options *opts) {
 	if (opts) {
 		free(opts->address);
+		free(opts->logfile);
 		free(opts);
 	}
 }
@@ -265,5 +291,19 @@ static void show_help() {
 	fprintf(stderr, "-l <address>  Set the IP address to listen on (default=127.0.0.1)\n");
 	fprintf(stderr, "-p <port>     Set the port to listen on (default=55825)\n");
 	fprintf(stderr, "-n            Enables dry-run mode for debugging (USB port won't be opened)\n");
+#ifdef HAVE_VSYSLOG
+	fprintf(stderr, "-s            Enables syslog (errors only)\n");
+#endif
+	if (log_debug_enabled()) {
+		fprintf(stderr, "-f <logfile>  Prints debug messages to logfile\n");
+	} else {
+		fprintf(stderr, "-f <logfile>  Prints info messages to logfile\n");
+	}
+	fprintf(stderr, "\n");
+}
+
+static void show_banner() {
+	fprintf(stderr, "DALI USB multiplexer (daliserver)\n");
+	fprintf(stderr, "Copyright (c) 2011 onitake et al. All right reserved.\n");
 	fprintf(stderr, "\n");
 }
