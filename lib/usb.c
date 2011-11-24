@@ -544,37 +544,30 @@ void usbdali_close(UsbDaliPtr dali) {
 static void usbdali_next(UsbDaliPtr dali) {
 	log_debug("Handling requests");
 	if (!dali->send_transfer) {
-		log_debug("No send transfer active");
 		if (dali->transaction) {
-			log_debug("Transaction active");
 			if (!dali->recv_transfer) {
-				log_debug("No receive transfer active");
+				log_debug("Not sending, transaction active, not receiving, starting receive");
 				usbdali_receive(dali);
 			}
 		} else {
-			log_debug("No transaction active");
 			if (list_length(dali->queue) > 0) {
-				log_debug("Transactions in queue");
 				if (dali->recv_transfer) {
-					log_debug("Canceling receive transfer before queueing send transfer");
+					log_debug("Not sending, no transaction active, queue not empty, receiving, canceling receive");
 					libusb_cancel_transfer(dali->recv_transfer);
 				} else {
 					UsbDaliTransaction *transaction = list_dequeue(dali->queue);
 					if (transaction) {
-						log_debug("Dequeued transaction");
+						log_debug("Not sending, no transaction active, queue not empty, not receiving, starting send");
 						usbdali_send(dali, transaction);
 					} else {
-						log_warn("No transaction found?");
-						if (!dali->recv_transfer) {
-							log_debug("No receive transfer active");
-							usbdali_receive(dali);
-						}
+						log_warn("Queue not empty, but no transaction returned");
+						log_debug("Not sending, no transaction active, queue not empty, not receiving, nothing unqueued, starting receive");
+						usbdali_receive(dali);
 					}
 				}
 			} else {
-				log_debug("No transaction in queue");
 				if (!dali->recv_transfer) {
-					log_debug("No receive transfer active");
+					log_debug("Not sending, no transaction active, queue empty, not receiving, starting receive");
 					usbdali_receive(dali);
 				}
 			}
@@ -587,10 +580,9 @@ static void usbdali_receive_callback(struct libusb_transfer *transfer) {
 
 	log_debug("Received data from device (status=0x%x - %s):", transfer->status, libusb_status_string(transfer->status));
 	if (transfer->actual_length > 0) {
-		if (log_debug_enabled()) {
-			hexdump(transfer->buffer, transfer->actual_length);
-		}
 		if (log_get_level() >= LOG_LEVEL_INFO) {
+			log_info("Received data from device:");
+			hexdump(transfer->buffer, transfer->actual_length);
 			usbdali_print_in(transfer->buffer, transfer->actual_length);
 			printf("\n");
 		}
@@ -785,11 +777,9 @@ static int usbdali_send(UsbDaliPtr dali, UsbDaliTransaction *transaction) {
 			}
 		}
 		
-		log_debug("Sending data to device:");
-		if (log_debug_enabled()) {
-			hexdump(buffer, USBDALI_LENGTH);
-		}
 		if (log_get_level() >= LOG_LEVEL_INFO) {
+			log_info("Sending data to device:");
+			hexdump(buffer, USBDALI_LENGTH);
 			usbdali_print_out(buffer, USBDALI_LENGTH);
 			printf("\n");
 		}
