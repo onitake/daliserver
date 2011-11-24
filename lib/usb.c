@@ -55,7 +55,7 @@ struct UsbDali {
 	UsbDaliTransaction *transaction;
 	unsigned int queue_size;
 	ListPtr queue;
-	// 0 is reserved it seems
+	// Start value is 1 it seems
 	unsigned int seq_num;
 	UsbDaliInBandCallback req_callback;
 	UsbDaliOutBandCallback bcast_callback;
@@ -432,7 +432,7 @@ UsbDaliPtr usbdali_open(libusb_context *context, DispatchPtr dispatch) {
 												dali->transaction = NULL;
 												dali->queue_size = DEFAULT_QUEUESIZE;
 												dali->queue = list_new((ListDataFreeFunc) usbdali_transaction_free);
-												dali->seq_num = 0;
+												dali->seq_num = 1;
 												dali->bcast_callback = NULL;
 												dali->req_callback = NULL;
 												dali->event_callback = NULL;
@@ -792,6 +792,7 @@ static int usbdali_send(UsbDaliPtr dali, UsbDaliTransaction *transaction) {
 		dali->transaction = transaction;
 		dali->transaction->seq_num = dali->seq_num;
 		if (dali->seq_num == 0xff) {
+			// TODO: See if this actually works or if 0 is reserved
 			dali->seq_num = 0;
 		} else {
 			dali->seq_num++;
