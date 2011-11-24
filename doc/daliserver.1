@@ -10,6 +10,8 @@
 .Op Fl l Ar address
 .Op Fl p Ar port
 .Op Fl n
+.Op Fl s
+.Op Fl f Ar logfile
 .Sh DESCRIPTION
 .Bl -tag
 .It Fl d Ar loglevel
@@ -22,6 +24,11 @@ Specify the listening TCP port. The default is 55825 (0xDA11)
 .It Fl n
 Enable dry run mode. The USB device is not opened in this mode.
 Intended for debugging and testing
+.It Fl s
+Enable syslog logging. Only error and fatal messages are logged.
+.It Fl f Ar logfile
+Send log to a file. If debug messages were enabled during compilation, logs
+debug messages. Only info messages otherwise.
 .El
 .Sh AUTHORS
 .Bl -item
