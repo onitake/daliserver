@@ -304,6 +304,6 @@ static void show_help() {
 
 static void show_banner() {
 	fprintf(stderr, "DALI USB multiplexer (daliserver)\n");
-	fprintf(stderr, "Copyright (c) 2011 onitake et al. All right reserved.\n");
+	fprintf(stderr, "Copyright (c) 2011 onitake All rights reserved.\n");
 	fprintf(stderr, "\n");
 }
