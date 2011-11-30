@@ -2,10 +2,11 @@
 -----------
 
 1. About
-2. Quickstart
-3. Communication Protocol
-4. Authors
-5. References
+2. Installation
+3. Running
+4. Communication Protocol
+5. Authors
+6. References
 
 1. About
 --------
@@ -26,8 +27,8 @@ Licensing terms can be found in the file LICENSE that you should have received
 with the program or source code.
 The source code is hosted on https://github.com/onitake/daliserver
 
-2. Quickstart
--------------
+2. Installation
+---------------
 
 If you received daliserver in binary form, you can skip the next section and go
 straight to "Running daliserver".
@@ -47,21 +48,36 @@ Followed by
 make
 This should produce the daliserver binary in src/.
 
-Running daliserver:
-daliserver supports a handful of command line options.
--d <level> sets the debug level, supported values are fatal, error, warn, info
-If debug output was enabled during compilation (./configure --enable-debug),
-the value debug is also accepted. info is the default.
-Note that debug output is very verbose, so you should probably stick to info.
--n enables dry run mode. No USB device is opened, only the network listener
-is installed. Mainly intended for testing.
--l <address> sets the IP address to listen on. For security reasons, the
-default is 127.0.0.1. You should only accept connections from outside
-localhost if you know what you are doing.
--p <port> changes the port from the default of 55825 (0xDA11).
-You can also keep the default settings and run daliserver as-is (recommended).
+3. Running
+----------
 
-Then have a look into the perl/ subdirectory for example Perl scripts.
+The recommended way of running daliserver is without command line options.
+For specific network/port requirements and changing logging settings,
+please refer to the manual page.
+
+Certain operating systems require special procedures to allow access to
+the DALI USB adapter. Tridonic chose to implement a device descriptor that
+registers it as a human interface device (HID), so usermode access would be
+possible on Microsoft Windows without a kernel mode driver.
+On most other modern operating systems, HID devices are normally claimed by a
+generic driver that handles human input. Since the adapter is not
+actually a HID, special preparations are required on these systems.
+On Linux, the generic HID driver supports a special command to detach it from
+the device and allow a usermode program access. daliserver sends this command
+during startup. On Mac OS X, such a function is not available, but there exists
+another way to keep the driver from claiming the adapter. A dummy kernel
+extension called DALIUSB.kext is shipped with the source code. Copy it to
+/System/Library/Extensions and reboot your system. During the next
+start, DALI USB will be registered with the generic USB driver instead of the
+HID driver, allowing usermode access from daliserver (or other software).
+It might also be necessary to change the device node permissions on certain
+Linux variants, as they are normally restricted to super user access. If this
+happens, daliserver will print out an error during startup. You may either run
+it with superuser privileges (not recommended) or change the permissions of the
+device. Read and write permissions are required. It is also possible to automate
+this process with udev.
+
+The perl/ subdirectory contains a number of example Perl scripts.
 usbdali.pm is a Perl module that can handle construction of DALI messages and
 communication with the daliserver. Some examples are provided too:
 alloff.pl - Sends a turn off broadcast message
@@ -71,7 +87,7 @@ allset.pl - Sends a lamp level broadcast message and displays the response
 lampoff.pl - Sends a turn off command to a specific lamp
 lampset.pl - Sends a level to a specific lamp
 
-3. Communication protocol
+4. Communication protocol
 -------------------------
 
 To communicate with daliserver, you need to connect to it first.
@@ -101,13 +117,13 @@ There is no padding, all messages have a fixed size of 2 bytes.
 
 eDALI commands aren't supported for now.
 
-4. Authors
+5. Authors
 ----------
 
 Gregor Riepl <onitake@gmail.com>
 Johannes <johannes@deragent.net>
 
-5. References
+6. References
 -------------
 
 http://www.dali-ag.org - DALI working group homepage
