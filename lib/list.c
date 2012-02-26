@@ -44,10 +44,14 @@ struct List {
 ListPtr list_new(ListDataFreeFunc func) {
 	ListPtr list = malloc(sizeof(struct List));
 	if (list) {
-		if (pthread_mutex_init(&list->mutex, NULL) != 0) {
+		pthread_mutexattr_t mattr;
+		pthread_mutexattr_init(&mattr);
+		pthread_mutexattr_settype(&mattr, PTHREAD_MUTEX_ERRORCHECK);
+		if (pthread_mutex_init(&list->mutex, &mattr) != 0) {
 			free(list);
 			list = NULL;
 		}
+		pthread_mutexattr_destroy(&mattr);
 		list->head = NULL;
 		list->tail = NULL;
 		list->free = func;
@@ -61,7 +65,9 @@ ListNodePtr list_enqueue(ListPtr list, void *data) {
 		struct ListNode *node = malloc(sizeof(struct ListNode));
 		node->next = NULL;
 		node->data = data;
-		pthread_mutex_lock(&list->mutex);
+		if (pthread_mutex_lock(&list->mutex)) {
+			perror("Can't lock list mutex");
+		}
 		node->prev = list->tail;
 		if (list->tail) {
 			list->tail->next = node;
@@ -71,7 +77,9 @@ ListNodePtr list_enqueue(ListPtr list, void *data) {
 			list->head = node;
 		}
 		list->length++;
-		pthread_mutex_unlock(&list->mutex);
+		if (pthread_mutex_unlock(&list->mutex)) {
+			perror("Can't unlock list mutex");
+		}
 		return node;
 	}
 	return NULL;
@@ -81,7 +89,7 @@ void *list_dequeue(ListPtr list) {
 	void *data = NULL;
 	if (list) {
 		struct ListNode *temp = NULL;
-		pthread_mutex_lock(&list->mutex);
+		list_lock(list);
 		if (list->head) {
 			data = list->head->data;
 			if (list->head->next) {
@@ -94,7 +102,7 @@ void *list_dequeue(ListPtr list) {
 			}
 			list->length--;
 		}
-		pthread_mutex_unlock(&list->mutex);
+		list_unlock(list);
 		free(temp);
 	}
 	return data;
@@ -110,7 +118,9 @@ void list_free(ListPtr list) {
 				}
 			}
 		}
-		pthread_mutex_destroy(&list->mutex);
+		if (pthread_mutex_destroy(&list->mutex)) {
+			perror("Can't destroy list mutex");
+		}
 		free(list);
 	}
 }
@@ -124,7 +134,7 @@ size_t list_length(ListPtr list) {
 
 void *list_remove(ListPtr list, ListNodePtr node) {
 	if (list && node) {
-		pthread_mutex_lock(&list->mutex);
+		list_lock(list);
 		if (list->head == node) {
 			list->head = node->next;
 		}
@@ -140,7 +150,7 @@ void *list_remove(ListPtr list, ListNodePtr node) {
 		void *data = node->data;
 		free(node);
 		list->length--;
-		pthread_mutex_unlock(&list->mutex);
+		list_unlock(list);
 		return data;
 	}
 	return NULL;
@@ -155,12 +165,12 @@ void *list_data(ListNodePtr node) {
 
 ListNodePtr list_find(ListPtr list, ListFindNodeFunc func, void *arg) {
 	if (list) {
-		pthread_mutex_lock(&list->mutex);
+		list_lock(list);
 		ListNodePtr node = list->head;
 		while (node && !func(node->data, arg)) {
 			node = node->next;
 		}
-		pthread_mutex_unlock(&list->mutex);
+		list_unlock(list);
 		return node;
 	}
 	return NULL;
@@ -168,13 +178,17 @@ ListNodePtr list_find(ListPtr list, ListFindNodeFunc func, void *arg) {
 
 void list_lock(ListPtr list) {
 	if (list) {
-		pthread_mutex_lock(&list->mutex);
+		if (pthread_mutex_lock(&list->mutex)) {
+			perror("Can't lock list mutex");
+		}
 	}
 }
 
 void list_unlock(ListPtr list) {
 	if (list) {
-		pthread_mutex_unlock(&list->mutex);
+		if (pthread_mutex_unlock(&list->mutex)) {
+			perror("Can't unlock list mutex");
+		}
 	}
 }
 
