@@ -47,8 +47,8 @@ typedef enum {
 	USBDALI_SYSTEM_ERROR = -8,
 } UsbDaliError;
 
-typedef void (*UsbDaliOutBandCallback)(UsbDaliError err, DaliFramePtr frame, unsigned int response, void *arg);
-typedef void (*UsbDaliInBandCallback)(UsbDaliError err, DaliFramePtr frame, unsigned int response, void *arg);
+typedef void (*UsbDaliOutBandCallback)(UsbDaliError err, DaliFramePtr frame, unsigned int status, void *arg);
+typedef void (*UsbDaliInBandCallback)(UsbDaliError err, DaliFramePtr frame, unsigned int response, unsigned int status, void *arg);
 typedef void (*UsbDaliEventCallback)(int closed, void *arg);
 
 // Return a human-readable error description of the libusb error

@@ -77,8 +77,8 @@ static IpcPtr killsocket;
 static int running;
 
 static void signal_handler(int sig);
-static void dali_outband_handler(UsbDaliError err, DaliFramePtr frame, unsigned int response, void *arg);
-static void dali_inband_handler(UsbDaliError err, DaliFramePtr frame, unsigned int response, void *arg);
+static void dali_outband_handler(UsbDaliError err, DaliFramePtr frame, unsigned int status, void *arg);
+static void dali_inband_handler(UsbDaliError err, DaliFramePtr frame, unsigned int response, unsigned int status, void *arg);
 static void net_frame_handler(void *arg, const char *buffer, size_t bufsize, ConnectionPtr conn);
 static Options *parse_opt(int argc, char *const argv[]);
 static void free_opt(Options *opts);
@@ -168,10 +168,10 @@ static void signal_handler(int sig) {
 	}
 }
 
-static void dali_outband_handler(UsbDaliError err, DaliFramePtr frame, unsigned int response, void *arg) {
+static void dali_outband_handler(UsbDaliError err, DaliFramePtr frame, unsigned int status, void *arg) {
 	log_debug("Outband message received");
 	if (err == USBDALI_SUCCESS) {
-		log_info("Broadcast (0x%02x 0x%02x): 0x%02x", frame->address, frame->command, response & 0xff);
+		log_info("Broadcast (0x%02x 0x%02x) [0x%04x]", frame->address, frame->command, status);
 		ServerPtr server = (ServerPtr) arg;
 		if (server) {
 			char rbuffer[NET_FRAMESIZE];
@@ -182,10 +182,10 @@ static void dali_outband_handler(UsbDaliError err, DaliFramePtr frame, unsigned 
 	}
 }
 
-static void dali_inband_handler(UsbDaliError err, DaliFramePtr frame, unsigned int response, void *arg) {
+static void dali_inband_handler(UsbDaliError err, DaliFramePtr frame, unsigned int response, unsigned int status, void *arg) {
 	log_debug("Inband message received");
 	if (err == USBDALI_SUCCESS) {
-		log_info("Response to (0x%02x 0x%02x): 0x%02x", frame->address, frame->command, response & 0xff);
+		log_info("Response to (0x%02x 0x%02x): 0x%02x [0x%04x]", frame->address, frame->command, response, status);
 		ConnectionPtr conn = (ConnectionPtr) arg;
 		if (conn) {
 			char rbuffer[NET_FRAMESIZE];

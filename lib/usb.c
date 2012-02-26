@@ -81,16 +81,26 @@ dr tp ?? ec ad cm st st sn .. .. .. .. .. .. ..
 11 74 00 04 81 6c b3 46
 11 73 00 00 ff 93 ff ff
 11 77 00 00 00 03 00 53
+12 72 00 00 00 80 00 50 64 00 00 00 00 00 00 00
+12 73 00 00 0d a0 ff ff 03
+12 72 00 00 00 80 00 4f 03
+11 77 00 00 00 03 00 53 00
+button power off
+11 73 00 00 ff 00 c7 9f 00 00 00 00 00 00 00 00
+button power on
+11 73 00 00 ff 05 3a c6 00 00 00 00 00 00 00 00
+
 */
 	// 11 = DALI side, 12 = USB side
 	uint8_t direction;
-	// 71 = 16bit transfer response (?), 72 = 24bit transfer response (?), 73 = 16bit transfer (?), 74 = 24bit transfer (?), 77 = ?
+	// 71 = transfer no response, 72 = transfer response, 73 = transfer complete, 74 = broadcast received (?), 77 = ?
 	uint8_t type;
 	//uint8_t unknown_00;
 	uint8_t ecommand;
 	uint8_t address;
+	// also serves as response code for 72
 	uint8_t command;
-	// type 71: 8a = NO (?)
+	// internal status code, value unknown
 	uint16_t status;
 	uint8_t seqnum;
 } UsbDaliIn;
@@ -123,10 +133,10 @@ enum {
 	USBDALI_DIRECTION_USB = 0x12,
 	USBDALI_TYPE_16BIT = 0x03,
 	USBDALI_TYPE_24BIT = 0x04,
-	USBDALI_TYPE_16BIT_COMPLETE = 0x71,
-	USBDALI_TYPE_24BIT_COMPLETE = 0x72,
-	USBDALI_TYPE_16BIT_TRANSFER = 0x73,
-	USBDALI_TYPE_24BIT_TRANSFER = 0x74,
+	USBDALI_TYPE_NO_RESPONSE = 0x71,
+	USBDALI_TYPE_RESPONSE = 0x72,
+	USBDALI_TYPE_COMPLETE = 0x73,
+	USBDALI_TYPE_BROADCAST = 0x74,
 	//USBDALI_TYPE_UNKNOWN = 0x77,
 };
 
@@ -248,42 +258,42 @@ static void usbdali_print_in(uint8_t *buffer, size_t buflen) {
 				break;
 		}
 		switch (buffer[1]) {
-			case USBDALI_TYPE_16BIT_COMPLETE:
-				printf("Type: 16bit DALI Complete ");
+			case USBDALI_TYPE_NO_RESPONSE:
+			case USBDALI_TYPE_RESPONSE:
+				printf("Type: Send response ");
 				break;
-			case USBDALI_TYPE_24BIT_COMPLETE:
-				printf("Type: 24bit DALI Complete ");
-				break;
-			case USBDALI_TYPE_16BIT_TRANSFER:
-				printf("Type: 16bit DALI Transfer ");
-				break;
-			case USBDALI_TYPE_24BIT_TRANSFER:
-				printf("Type: 24bit DALI Transfer ");
+			case USBDALI_TYPE_COMPLETE:
+				printf("Type: Send complete ");
 				break;
 			default:
 				printf("Type: Unknown (%02x) ", buffer[1]);
 				break;
 		}
 		switch (buffer[1]) {
-			case USBDALI_TYPE_16BIT_COMPLETE:
-			case USBDALI_TYPE_16BIT_TRANSFER:
+			case USBDALI_TYPE_NO_RESPONSE:
+				printf("Response: ff ");
+				break;
+			case USBDALI_TYPE_RESPONSE:
+				printf("Response: %02x ", buffer[5]);
+				break;
+			case USBDALI_TYPE_COMPLETE:
+			case USBDALI_TYPE_BROADCAST:
 				printf("Address: %02x ", buffer[4]);
 				printf("Command: %02x ", buffer[5]);
 				break;
-			case USBDALI_TYPE_24BIT_COMPLETE:
-			case USBDALI_TYPE_24BIT_TRANSFER:
-				printf("Command: %02x ", buffer[3]);
-				printf("Address: %02x ", buffer[4]);
-				printf("Value: %02x ", buffer[5]);
-				break;
+			//case USBDALI_TYPE_24BIT_TRANSFER:
+			//	printf("Address: %02x ", buffer[3]);
+			//	printf("Command: %02x ", buffer[4]);
+			//	printf("Length: %02x ", buffer[5]);
+			//	break;
 			default:
 				printf("Data: %02x %02x %02x ", buffer[3], buffer[4], buffer[5]);
 				break;
 		}
 		printf("Status: %04x ", (buffer[6] << 8) | buffer[7]);
 		switch (buffer[1]) {
-			case USBDALI_TYPE_16BIT_COMPLETE:
-			case USBDALI_TYPE_24BIT_COMPLETE:
+			case USBDALI_TYPE_NO_RESPONSE:
+			case USBDALI_TYPE_RESPONSE:
 				printf("Sequence number: %02x ", buffer[8]);
 				break;
 		}
@@ -599,12 +609,12 @@ static void usbdali_receive_callback(struct libusb_transfer *transfer) {
 					switch (in.direction) {
 					case USBDALI_DIRECTION_DALI:
 						switch (in.type) {
-						case USBDALI_TYPE_16BIT_TRANSFER: {
+						case USBDALI_TYPE_COMPLETE: {
 							DaliFramePtr frame = daliframe_new(in.address, in.command);
 							dali->bcast_callback(USBDALI_SUCCESS, frame, in.status, dali->bcast_arg);
 							daliframe_free(frame);
 						} break;
-						case USBDALI_TYPE_24BIT_TRANSFER: {
+						case USBDALI_TYPE_BROADCAST: {
 							DaliFramePtr frame = daliframe_enew(in.ecommand, in.address, in.command);
 							dali->bcast_callback(USBDALI_SUCCESS, frame, in.status, dali->bcast_arg);
 							daliframe_free(frame);
@@ -618,27 +628,25 @@ static void usbdali_receive_callback(struct libusb_transfer *transfer) {
 						if (dali->transaction) {
 							if (dali->transaction->seq_num == in.seqnum) {
 								switch (in.type) {
-								case USBDALI_TYPE_16BIT_COMPLETE:
-									log_debug("Transfer completed with status 0x%04x", in.status);
-									// Transfer completed, do not tail another cancel
-									usbdali_transaction_free(dali->transaction);
-									dali->transaction = NULL;
-									break;
-								case USBDALI_TYPE_24BIT_COMPLETE:
-									log_debug("Transfer completed with status 0x%04x", in.status);
-									usbdali_transaction_free(dali->transaction);
-									dali->transaction = NULL;
-									break;
-								case USBDALI_TYPE_16BIT_TRANSFER: {
+								case USBDALI_TYPE_NO_RESPONSE: {
+									log_debug("Transfer completed without response");
 									DaliFramePtr frame = daliframe_new(in.address, in.command);
-									dali->req_callback(USBDALI_SUCCESS, frame, in.status, dali->transaction->arg);
+									dali->req_callback(USBDALI_SUCCESS, frame, 0xff, in.status, dali->transaction->arg);
 									daliframe_free(frame);
+									usbdali_transaction_free(dali->transaction);
+									dali->transaction = NULL;
 								} break;
-								case USBDALI_TYPE_24BIT_TRANSFER: {
-									DaliFramePtr frame = daliframe_enew(in.ecommand, in.address, in.command);
-									dali->req_callback(USBDALI_SUCCESS, frame, in.status, dali->transaction->arg);
+								case USBDALI_TYPE_RESPONSE: {
+									log_debug("Transfer completed with status 0x%02x", in.command);
+									DaliFramePtr frame = daliframe_new(in.address, in.command);
+									dali->req_callback(USBDALI_SUCCESS, frame, in.command, in.status, dali->transaction->arg);
 									daliframe_free(frame);
+									usbdali_transaction_free(dali->transaction);
+									dali->transaction = NULL;
 								} break;
+								case USBDALI_TYPE_COMPLETE:
+									// Should check if send was successful here and send error to callback
+									break;
 								default:
 									log_info("Not handling unknown message type 0x%02x", in.type);
 									break;
@@ -657,7 +665,7 @@ static void usbdali_receive_callback(struct libusb_transfer *transfer) {
 		case LIBUSB_TRANSFER_TIMED_OUT:
 			if (dali) {
 				if (dali->transaction) {
-					dali->req_callback(USBDALI_RECEIVE_TIMEOUT, dali->transaction->request, 0xffff, dali->transaction->arg);
+					dali->req_callback(USBDALI_RECEIVE_TIMEOUT, dali->transaction->request, 0xff, 0xffff, dali->transaction->arg);
 					usbdali_transaction_free(dali->transaction);
 					dali->transaction = NULL;
 				}
@@ -674,7 +682,7 @@ static void usbdali_receive_callback(struct libusb_transfer *transfer) {
 			log_warn("Error receiving data from device (status=0x%x - %s):", transfer->status, libusb_status_string(transfer->status));
 			if (dali) {
 				if (dali->transaction) {
-					dali->req_callback(USBDALI_RECEIVE_ERROR, dali->transaction->request, 0xffff, dali->transaction->arg);
+					dali->req_callback(USBDALI_RECEIVE_ERROR, dali->transaction->request, 0xff, 0xffff, dali->transaction->arg);
 					usbdali_transaction_free(dali->transaction);
 					dali->transaction = NULL;
 				} else {
@@ -724,7 +732,7 @@ static void usbdali_send_callback(struct libusb_transfer *transfer) {
 		case LIBUSB_TRANSFER_TIMED_OUT:
 			log_warn("Sending data to device timed out");
 			if (dali) {
-				dali->req_callback(USBDALI_SEND_TIMEOUT, dali->transaction->request, 0xffff, dali->transaction->arg);
+				dali->req_callback(USBDALI_SEND_TIMEOUT, dali->transaction->request, 0xff, 0xffff, dali->transaction->arg);
 				usbdali_transaction_free(dali->transaction);
 				dali->transaction = NULL;
 			}
@@ -738,7 +746,7 @@ static void usbdali_send_callback(struct libusb_transfer *transfer) {
 		case LIBUSB_TRANSFER_OVERFLOW:
 			log_warn("Error sending data to device (status=0x%x - %s):", transfer->status, libusb_status_string(transfer->status));
 			if (dali) {
-				dali->req_callback(USBDALI_SEND_ERROR, dali->transaction->request, 0xffff, dali->transaction->arg);
+				dali->req_callback(USBDALI_SEND_ERROR, dali->transaction->request, 0xff, 0xffff, dali->transaction->arg);
 				usbdali_transaction_free(dali->transaction);
 				dali->transaction = NULL;
 			}
