@@ -131,4 +131,5 @@ IEC 62386 - The official standard (requires fee)
 http://www.tridonic.com/com/en/2192.asp - Tridonic masterCONFIGURATOR software
 for Microsoft Windows, was used to reverse engineer the communication protocol
 with DALI USB and to test out DALI commands
-
+http://www.siwawi.arubi.uni-kl.de/avr_projects/dali/index.html
+AVR microcontroller DALI implementation, contains lots of useful links
