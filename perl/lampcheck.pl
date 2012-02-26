@@ -6,28 +6,21 @@ use usbdali;
 use Data::Dumper;
 
 if (@ARGV < 1) {
-	print("Usage: lampset.pl <0-63> <0-254>\n");
+	print("Usage: lampcheck.pl <0-63>\n");
 	exit(1);
 }
 
 my $lamp = $ARGV[0];
-my $dim = $ARGV[1];
 if ($lamp < 0) {
 	$lamp = 0;
 }
 if ($lamp > 63) {
 	$lamp = 63;
 }
-if ($dim < 0) {
-	$dim = 0;
-}
-if ($dim > 254) {
-	$dim = 254;
-}
 
 my $dali = usbdali->new('localhost');
 if ($dali->connect()) {
-	$dali->send(usbdali->make_dim('lamp', $lamp, $dim));
+	$dali->send(usbdali->make_cmd('lamp', $lamp, 'level'));
 	my $resp = $dali->receive();
 	if ($resp) {
 		print("Received status:$resp->{status} response:$resp->{response}\n");

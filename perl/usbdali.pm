@@ -268,7 +268,7 @@ sub make_cmd {
 			# duplicate of command 4
 			$code = 0x07;
 		}
-		when (/up/) {
+		when (/^up/) {
 			# duplicate of command 3
 			$code = 0x08;
 		}
