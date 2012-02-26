@@ -48,6 +48,11 @@ static int enabled_syslog = 0;
 
 void log_vprintf(unsigned int level, const char *format, va_list args) {
 	if (level <= LOG_LEVEL_MAX) {
+#ifdef HAVE_VSYSLOG
+		// Must copy the list here or the program will crash later...
+		va_list argcopy;
+		va_copy(argcopy, args);
+#endif
 		if (level <= loglevel || (fp_logfile && level <= loglevel_file)) {
 			time_t now = time(NULL);
 			FILE *out;
@@ -100,23 +105,24 @@ void log_vprintf(unsigned int level, const char *format, va_list args) {
 		if (level <= loglevel_syslog) {
 			switch (level) {
 			case LOG_LEVEL_FATAL:
-				vsyslog(LOG_ALERT, format, args);
+				vsyslog(LOG_ALERT, format, argcopy);
 				break;
 			case LOG_LEVEL_ERROR:
-				vsyslog(LOG_ERR, format, args);
+				vsyslog(LOG_ERR, format, argcopy);
 				break;
 			case LOG_LEVEL_WARN:
-				vsyslog(LOG_WARNING, format, args);
+				vsyslog(LOG_WARNING, format, argcopy);
 				break;
 			case LOG_LEVEL_INFO:
-				vsyslog(LOG_INFO, format, args);
+				vsyslog(LOG_INFO, format, argcopy);
 				break;
 			case LOG_LEVEL_DEBUG:
-				vsyslog(LOG_DEBUG, format, args);
+				vsyslog(LOG_DEBUG, format, argcopy);
 			default:
 				break;
 			}
 		}
+		va_end(argcopy);
 #endif
 	}
 }
