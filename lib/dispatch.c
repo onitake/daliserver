@@ -65,7 +65,7 @@ void dispatch_free(DispatchPtr table) {
 	}
 }
 
-int dispatch_run(DispatchPtr table, int timeout) {
+DispatchStatus dispatch_run(DispatchPtr table, int timeout) {
 	if (table) {
 		int ready = poll(table->fds, table->numentries, timeout);
 		if (ready == -1) {

@@ -6,6 +6,7 @@ test/testsock
 test/testpack
 test/testlist
 test/testarray
+test/testdispatch
 Makefile
 Makefile.in
 aclocal.m4

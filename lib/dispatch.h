@@ -29,10 +29,24 @@
 #include <sys/types.h>
 
 typedef enum {
+	// The file descriptor was closed
 	DISPATCH_FD_CLOSED = -1,
+	// poll() returned an error
 	DISPATCH_POLL_ERROR = -2,
+	// The file descriptor has become invalid
 	DISPATCH_FD_INVALID = -3,
 } DispatchError;
+
+typedef enum {
+	// Some error occured
+	DISPATCH_ERROR = 0,
+	// The timeout has passed
+	DISPATCH_TIMEOUT = 1,
+	// An event was handled
+	DISPATCH_EVENT_HANDLED = 2,
+	// No events were waiting
+	DISPATCH_NO_EVENTS = 3,
+} DispatchStatus;
 
 // Callback function pointer to input handler routine
 typedef void (*DispatchReadyFunc)(void *arg);
@@ -50,12 +64,7 @@ DispatchPtr dispatch_new();
 void dispatch_free(DispatchPtr table);
 // Wait for I/O events on all the file descriptors in the dispatch queue
 // Pass -1 for the timeout to wait forever
-// Returns:
-// 0 on error
-// 1 if a timeout occured
-// 2 if events were handled
-// 3 if no events were waiting
-int dispatch_run(DispatchPtr table, int timeout);
+DispatchStatus dispatch_run(DispatchPtr table, int timeout);
 
 // Add a file descriptor to the dispatch queue
 // fd must be a valid file descriptor
@@ -64,7 +73,7 @@ int dispatch_run(DispatchPtr table, int timeout);
 // arg is the first argument passed to the callbacks
 void dispatch_add(DispatchPtr table, int fd, short events, DispatchReadyFunc readyfn, DispatchErrorFunc errorfn, DispatchIndexFunc indexfn, void *arg);
 // Remove a file descriptor from the queue
-// This may take linear time as the queue is search first
+// This may take linear time as the queue is searched first
 void dispatch_remove_fd(DispatchPtr table, int fd);
 // Remove entry number 'index' from the queue
 // Takes constant time
