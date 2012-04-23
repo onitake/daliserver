@@ -25,7 +25,9 @@
 
 #include "list.h"
 #include <stdlib.h>
+#ifdef HAVE_PTHREAD
 #include <pthread.h>
+#endif
 
 struct ListNode {
 	struct ListNode *prev;
@@ -37,25 +39,28 @@ struct List {
 	struct ListNode *head;
 	struct ListNode *tail;
 	ListDataFreeFunc free;
+#ifdef HAVE_PTHREAD
 	pthread_mutex_t mutex;
+#endif
 	size_t length;
 };
 
 ListPtr list_new(ListDataFreeFunc func) {
 	ListPtr list = malloc(sizeof(struct List));
 	if (list) {
-		pthread_mutexattr_t mattr;
-		pthread_mutexattr_init(&mattr);
-		pthread_mutexattr_settype(&mattr, PTHREAD_MUTEX_ERRORCHECK);
-		if (pthread_mutex_init(&list->mutex, &mattr) != 0) {
+#ifdef HAVE_PTHREAD
+		if (pthread_mutex_init(&list->mutex, NULL) != 0) {
 			free(list);
 			list = NULL;
+		} else {
+#endif
+			list->head = NULL;
+			list->tail = NULL;
+			list->free = func;
+			list->length = 0;
+#ifdef HAVE_PTHREAD
 		}
-		pthread_mutexattr_destroy(&mattr);
-		list->head = NULL;
-		list->tail = NULL;
-		list->free = func;
-		list->length = 0;
+#endif
 	}
 	return list;
 }
@@ -65,9 +70,7 @@ ListNodePtr list_enqueue(ListPtr list, void *data) {
 		struct ListNode *node = malloc(sizeof(struct ListNode));
 		node->next = NULL;
 		node->data = data;
-		if (pthread_mutex_lock(&list->mutex)) {
-			perror("Can't lock list mutex");
-		}
+		list_lock(list);
 		node->prev = list->tail;
 		if (list->tail) {
 			list->tail->next = node;
@@ -77,9 +80,7 @@ ListNodePtr list_enqueue(ListPtr list, void *data) {
 			list->head = node;
 		}
 		list->length++;
-		if (pthread_mutex_unlock(&list->mutex)) {
-			perror("Can't unlock list mutex");
-		}
+		list_unlock(list);
 		return node;
 	}
 	return NULL;
@@ -118,9 +119,11 @@ void list_free(ListPtr list) {
 				}
 			}
 		}
+#ifdef HAVE_PTHREAD
 		if (pthread_mutex_destroy(&list->mutex)) {
 			perror("Can't destroy list mutex");
 		}
+#endif
 		free(list);
 	}
 }
@@ -177,19 +180,23 @@ ListNodePtr list_find(ListPtr list, ListFindNodeFunc func, void *arg) {
 }
 
 void list_lock(ListPtr list) {
+#ifdef HAVE_PTHREAD
 	if (list) {
 		if (pthread_mutex_lock(&list->mutex)) {
 			perror("Can't lock list mutex");
 		}
 	}
+#endif
 }
 
 void list_unlock(ListPtr list) {
+#ifdef HAVE_PTHREAD
 	if (list) {
 		if (pthread_mutex_unlock(&list->mutex)) {
 			perror("Can't unlock list mutex");
 		}
 	}
+#endif
 }
 
 ListNodePtr list_first(ListPtr list) {
