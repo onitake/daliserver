@@ -11,11 +11,21 @@ m4_include([m4/acx_pthread.m4])
 AC_PROG_CC
 AC_PROG_RANLIB
 
+# Custom features
+AC_ARG_ENABLE([debug], [AS_HELP_STRING([--enable-debug], [enable debug messages (default is no)])], [
+	AC_DEFINE(DEBUG, 1, [Enable debug messages])
+])
+AC_ARG_ENABLE([threads], [AS_HELP_STRING([--enable-threads], [enable thread support (unused, default is no)])], [
+	AC_DEFINE(THREADS, 1, [Enable thread support])
+])
+
 # Checks for POSIX thread support
-ACX_PTHREAD
-CC="$PTHREAD_CC"
-CFLAGS="$CFLAGS $PTHREAD_CFLAGS"
-LIBS="$PTHREAD_LIBS $LIBS"
+if test "$enable_threads" = "yes"; then
+	ACX_PTHREAD
+	CC="$PTHREAD_CC"
+	CFLAGS="$CFLAGS $PTHREAD_CFLAGS"
+	LIBS="$PTHREAD_LIBS $LIBS"
+fi
 
 # Checks for header files.
 AC_CHECK_HEADERS([arpa/inet.h netinet/in.h stdint.h stdlib.h string.h sys/param.h sys/socket.h unistd.h syslog.h])
@@ -39,11 +49,6 @@ AC_CHECK_FUNCS([memset socket strerror localtime_r getopt strtol vsyslog])
 # Checks for libusb
 PKG_CHECK_MODULES([LIBUSB10], [libusb-1.0 >= 1.0.8], [], [
 	AC_MSG_FAILURE([libusb-1.0 is required])
-])
-
-# Custom features
-AC_ARG_ENABLE([debug], [AS_HELP_STRING([--enable-debug], [enable debug messages (default is no)])], [
-	AC_DEFINE(DEBUG, 1, [Enable debug messages])
 ])
 
 AC_CONFIG_FILES([Makefile src/Makefile lib/Makefile doc/Makefile test/Makefile perl/Makefile])
