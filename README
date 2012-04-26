@@ -36,10 +36,10 @@ straight to "Running daliserver".
 To compile daliserver, you need GNU autotools, a C99 compliant C compiler
 with thread support, libusb 1.x, and associated development packages.
 For Debian based Linux operating systems, you need to install
-build-essential autoconf libusb-1.0-0 libusb-1.0-0-dev
+git build-essential autoconf libtool pkg-config libusb-1.0-0 libusb-1.0-0-dev
 
 To generate the configure script and makefile templates, run
-autoreconf
+autoreconf -i
 This should complete without error. If it doesn't, make sure all development
 packages are installed.
 Then run
