@@ -29,7 +29,9 @@
 #include <string.h>
 #include <errno.h>
 #include <string.h>
+#ifdef HAVE_VSYSLOG
 #include <syslog.h>
+#endif
 #include <stdlib.h>
 
 #ifndef LOG_LEVEL_DEFAULT
@@ -92,11 +94,13 @@ void log_vprintf(unsigned int level, const char *format, va_list args) {
 				fprintf(out, "%s%s", datefmt, prefixfmt);
 				vfprintf(out, format, args);
 				fprintf(out, "\n");
+				fflush(out);
 			}
 			if (fp_logfile && level <= loglevel_file) {
 				fprintf(fp_logfile, "%s%s", datefmt, prefixfmt);
 				vfprintf(fp_logfile, format, args);
 				fprintf(fp_logfile, "\n");
+				fflush(fp_logfile);
 			}
 			free(prefixfmt);
 			free(datefmt);
@@ -175,6 +179,7 @@ void log_set_logfile_level(unsigned int level) {
 	}
 }
 
+#ifdef HAVE_VSYSLOG
 void log_set_syslog(const char *name) {
 	if (enabled_syslog) {
 		closelog();
@@ -193,3 +198,5 @@ void log_set_syslog_level(unsigned int level) {
 		loglevel_syslog = level;
 	}
 }
+#endif
+
