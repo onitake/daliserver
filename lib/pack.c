@@ -28,7 +28,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <sys/param.h>
-#include <sys/errno.h>
+#include <errno.h>
 
 #if defined(__BYTE_ORDER)
 # if __BYTE_ORDER == __LITTLE_ENDIAN
