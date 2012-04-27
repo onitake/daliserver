@@ -29,7 +29,12 @@
 #include <unistd.h>
 #include <stdint.h>
 
+// Dumps binary data to stdout in nicely formatted way
 void hexdump(const uint8_t *data, size_t length);
+// Releases all ties to the controlling terminal and forks into background
+// stdin, stdout and stderr are rerouted to /dev/null, but all other descriptors
+// will be kept open. If pidfile is not NULL, write the daemon's PID into it.
+void daemonize(const char *pidfile);
 
 #endif /*_UTIL_H*/
 

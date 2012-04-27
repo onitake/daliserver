@@ -57,12 +57,15 @@
 // }
 
 // Listen on this port
-const unsigned short NET_PORT = 55825;
+const unsigned short DEFAULT_NET_PORT = 55825;
 // Bind to this address
-const char *NET_ADDRESS = "127.0.0.1";
+const char *DEFAULT_NET_ADDRESS = "127.0.0.1";
 // Network frame size
-const size_t NET_FRAMESIZE = 2;
-// Default log level
+const size_t DEFAULT_NET_FRAMESIZE = 2;
+// Default log level 
+const unsigned int DEFAULT_LOG_LEVEL = LOG_LEVEL_INFO;
+// PID file
+const char *DEFAULT_PID_FILE = "/var/run/daliserver.pid";
 
 typedef struct {
 	unsigned short port;
@@ -71,6 +74,8 @@ typedef struct {
 	int dryrun;
 	int syslog;
 	char *logfile;
+	int background;
+	char *pidfile;
 } Options;
 
 static IpcPtr killsocket;
@@ -104,6 +109,9 @@ int main(int argc, char *const argv[]) {
 		log_set_syslog("daliserver");
 	}
 #endif
+	if (opts->background) {
+		daemonize(opts->pidfile);
+	}
 
 	log_info("Starting daliserver");
 
@@ -124,7 +132,7 @@ int main(int argc, char *const argv[]) {
 	}
 
 	log_debug("Initializing server");
-	ServerPtr server = server_open(dispatch, opts->address, opts->port, NET_FRAMESIZE, net_frame_handler, usb);
+	ServerPtr server = server_open(dispatch, opts->address, opts->port, DEFAULT_NET_FRAMESIZE, net_frame_handler, usb);
 	if (!server) {
 		return -1;
 	}
@@ -174,7 +182,7 @@ static void dali_outband_handler(UsbDaliError err, DaliFramePtr frame, unsigned 
 		log_info("Broadcast (0x%02x 0x%02x) [0x%04x]", frame->address, frame->command, status);
 		ServerPtr server = (ServerPtr) arg;
 		if (server) {
-			char rbuffer[NET_FRAMESIZE];
+			char rbuffer[DEFAULT_NET_FRAMESIZE];
 			rbuffer[0] = frame->address;
 			rbuffer[1] = frame->command;
 			server_broadcast(server, rbuffer, sizeof(rbuffer));
@@ -188,7 +196,7 @@ static void dali_inband_handler(UsbDaliError err, DaliFramePtr frame, unsigned i
 		log_info("Response to (0x%02x 0x%02x): 0x%02x [0x%04x]", frame->address, frame->command, response, status);
 		ConnectionPtr conn = (ConnectionPtr) arg;
 		if (conn) {
-			char rbuffer[NET_FRAMESIZE];
+			char rbuffer[DEFAULT_NET_FRAMESIZE];
 			rbuffer[0] = 0;
 			rbuffer[1] = (uint8_t) response;
 			connection_reply(conn, rbuffer, sizeof(rbuffer));
@@ -197,7 +205,7 @@ static void dali_inband_handler(UsbDaliError err, DaliFramePtr frame, unsigned i
 		log_error("Error sending DALI message: %s", usbdali_error_string(err));
 		ConnectionPtr conn = (ConnectionPtr) arg;
 		if (conn) {
-			char rbuffer[NET_FRAMESIZE];
+			char rbuffer[DEFAULT_NET_FRAMESIZE];
 			rbuffer[0] = 1;
 			rbuffer[1] = 0;
 			connection_reply(conn, rbuffer, sizeof(rbuffer));
@@ -206,7 +214,7 @@ static void dali_inband_handler(UsbDaliError err, DaliFramePtr frame, unsigned i
 }
 
 static void net_frame_handler(void *arg, const char *buffer, size_t bufsize, ConnectionPtr conn) {
-	if (buffer && bufsize >= NET_FRAMESIZE) {
+	if (buffer && bufsize >= DEFAULT_NET_FRAMESIZE) {
 		DaliFramePtr frame = daliframe_new((uint8_t) buffer[0], (uint8_t) buffer[1]);
 		log_info("Got frame: 0x%02x 0x%02x", frame->address, frame->command);
 		UsbDaliPtr dali = (UsbDaliPtr) arg;
@@ -218,16 +226,18 @@ static void net_frame_handler(void *arg, const char *buffer, size_t bufsize, Con
 
 static Options *parse_opt(int argc, char *const argv[]) {
 	Options *opts = malloc(sizeof(Options));
-	opts->address = strdup(NET_ADDRESS);
-	opts->port = NET_PORT;
+	opts->address = strdup(DEFAULT_NET_ADDRESS);
+	opts->port = DEFAULT_NET_PORT;
 	opts->dryrun = 0;
-	opts->loglevel = LOG_LEVEL_INFO;
+	opts->loglevel = DEFAULT_LOG_LEVEL;
 	opts->syslog = 0;
 	opts->logfile = NULL;
+	opts->background = 0;
+	opts->pidfile = NULL;
 
 	int opt;
 	opterr = 0;
-	while ((opt = getopt(argc, argv, "d:l:p:nsf:")) != -1) {
+	while ((opt = getopt(argc, argv, "d:l:p:nsf:br:")) != -1) {
 		switch (opt) {
 		case 'd':
 			if (strcmp(optarg, "fatal") == 0) {
@@ -263,6 +273,16 @@ static Options *parse_opt(int argc, char *const argv[]) {
 		case 'f':
 			opts->logfile = strdup(optarg);
 			break;
+		case 'b':
+			opts->background = 1;
+			if (!opts->pidfile) {
+				opts->pidfile = strdup(DEFAULT_PID_FILE);
+			}
+			break;
+		case 'r':
+			free(opts->pidfile);
+			opts->pidfile = strdup(optarg);
+			break;
 		default:
 			free_opt(opts);
 			return NULL;
@@ -290,15 +310,17 @@ static void show_help() {
 	}
 	fprintf(stderr, "-l <address>  Set the IP address to listen on (default=127.0.0.1)\n");
 	fprintf(stderr, "-p <port>     Set the port to listen on (default=55825)\n");
-	fprintf(stderr, "-n            Enables dry-run mode for debugging (USB port won't be opened)\n");
+	fprintf(stderr, "-n            Enable dry-run mode for debugging (USB port won't be opened)\n");
 #ifdef HAVE_VSYSLOG
-	fprintf(stderr, "-s            Enables syslog (errors only)\n");
+	fprintf(stderr, "-s            Enable syslog (errors only)\n");
 #endif
 	if (log_debug_enabled()) {
-		fprintf(stderr, "-f <logfile>  Prints debug messages to logfile\n");
+		fprintf(stderr, "-f <logfile>  Write debug messages to logfile\n");
 	} else {
-		fprintf(stderr, "-f <logfile>  Prints info messages to logfile\n");
+		fprintf(stderr, "-f <logfile>  Write info messages to logfile\n");
 	}
+	fprintf(stderr, "-b            Fork into background (implies -r)\n");
+	fprintf(stderr, "-r <file>     Save PID to file (default=/var/run/daliserver.pid)\n");
 	fprintf(stderr, "\n");
 }
 

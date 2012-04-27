@@ -25,6 +25,9 @@
 
 #include "util.h"
 #include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 void hexdump(const uint8_t *data, size_t length) {
 	size_t line;
@@ -45,5 +48,122 @@ void hexdump(const uint8_t *data, size_t length) {
 		}
 		printf("\n");
 	}
+}
+
+void daemonize(const char *pidfile) {
+	// Check if we are a child of init
+	if (getppid() == 1) {
+		// Yes, no need to daemonize
+		return;
+	}
+
+	// Prepare notification channel
+	int notefd[2];
+	if (pipe(notefd) < 0) {
+		exit(1);
+	}
+	
+	// First fork
+	pid_t pid = fork();
+	// Did it succeed?
+	if (pid < 0) {
+		// No, exit
+		exit(1);
+	}
+	// Are we the parent?
+	if (pid > 0) {
+		// Yes, wait for the daemon to signal us
+		char retval = 0;
+		if (read(notefd[0], &retval, 1) != 1) {
+			exit(1);
+		}
+		exit(retval);
+	}
+	
+	// Prepare for the second fork
+	close(notefd[0]);
+
+	// Change the file mode mask
+	umask(0);
+
+	// Create a new session ID for the daemon process
+	pid_t sid = setsid();
+	if (sid < 0) {
+		// Propagate the error to the main process
+		char retval = 2;
+		if (write(notefd[1], &retval, 1) != 1) { /* ignore */ }
+		exit(1);
+	}
+
+	// Change to the directory root to prevent mount point locking
+	if (chdir("/") < 0) {
+		// Propagate the error to the main process
+		char retval = 2;
+		if (write(notefd[1], &retval, 1) != 1) { /* ignore */ }
+		exit(1);
+	}
+
+	// Drop standard I/O descriptors
+	if (!freopen("/dev/null", "r", stdin) || !freopen("/dev/null", "w", stdout) || !freopen("/dev/null", "w", stderr)) {
+		// Propagate the error to the main process
+		char retval = 2;
+		if (write(notefd[1], &retval, 1) != 1) { /* ignore */ }
+		exit(1);
+	}
+	
+	// Fork again to cut all ties to the controlling terminal
+	pid_t dpid = fork();
+	if (dpid < 0) {
+		// Propagate the error to the main process
+		char retval = 2;
+		if (write(notefd[1], &retval, 1) != 1) { /* ignore */ }
+		exit(1);
+	}
+	if (dpid > 0) {
+		// The fork has succeeded, we are not needed any more
+		exit(0);
+	}
+
+	// Record the daemon's PID
+	if (pidfile) {
+		int pidfd = open(pidfile, O_WRONLY | O_CREAT, 0640);
+		if (pidfd < 0) {
+			// Propagate the error to the main process
+			char retval = 2;
+			if (write(notefd[1], &retval, 1) != 1) { /* ignore */ }
+			exit(1);
+		}
+		if (lockf(pidfd, F_TLOCK, 0) < 0) {
+			// Locking has failed - another daemon is running
+			// Propagate the error to the main process
+			char retval = 2;
+			if (write(notefd[1], &retval, 1) != 1) { /* ignore */ }
+			exit(1);
+		}
+		// Store the PID
+		FILE *pidfp = fdopen(pidfd, "w");
+		if (!pidfp) {
+			// Propagate the error to the main process
+			char retval = 2;
+			if (write(notefd[1], &retval, 1) != 1) { /* ignore */ }
+			exit(1);
+		}
+		fprintf(pidfp, "%d\n", getpid());
+		fflush(pidfp);
+		// And keep the file open and locked
+	}
+
+	// Signal the main process that daemonization has finished
+	char retval = 0;
+	if (write(notefd[1], &retval, 1) != 1) {
+		// Nasty business. If we get here, try to do the best we can to avoid
+		// blocking the master indefinitely.
+		close(notefd[1]);
+		exit(1);
+	}
+	// And close the notification channel
+	close(notefd[1]);
+	
+	// Done
 }
 
