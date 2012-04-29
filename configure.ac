@@ -12,6 +12,7 @@ AC_PROG_CC
 AC_PROG_RANLIB
 
 # Custom features
+AM_MAINTAINER_MODE([enable])
 AC_ARG_ENABLE([debug], [AS_HELP_STRING([--enable-debug], [enable debug messages (default is no)])], [
 	AC_DEFINE(DEBUG, 1, [Enable debug messages])
 ])
