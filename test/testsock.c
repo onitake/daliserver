@@ -4,7 +4,9 @@
 #include <errno.h>
 #include <unistd.h>
 #include <poll.h>
+#ifdef HAVE_PTHREAD
 #include <pthread.h>
+#endif
 #include <sys/socket.h>
 
 void *producer_loop(void *arg) {
@@ -75,6 +77,8 @@ void *consumer_loop(void *arg) {
 }
 
 int main(int argc, char **argv) {
+#ifdef HAVE_PTHREAD
+
 	printf("Setting up IPC\n");
 
 	int sockets[2];
@@ -107,5 +111,9 @@ int main(int argc, char **argv) {
 		fprintf(stderr, "Error joining consumer thread: %s\n", strerror(errno));
 	}
 	
+#else
+	printf("Socket test skipped (thread support not enabled)\n");
+#endif
+
 	return 0;
 }
