@@ -91,11 +91,10 @@ static void show_help();
 static void show_banner();
 
 int main(int argc, char *const argv[]) {
-	show_banner();
-
 	log_debug("Parsing options");
 	Options *opts = parse_opt(argc, argv);
 	if (!opts) {
+		show_banner();
 		show_help();
 		return -1;
 	}
@@ -111,6 +110,8 @@ int main(int argc, char *const argv[]) {
 #endif
 	if (opts->background) {
 		daemonize(opts->pidfile);
+	} else {
+		show_banner();
 	}
 
 	log_info("Starting daliserver");
