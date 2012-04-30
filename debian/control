@@ -1,0 +1,16 @@
+Source: daliserver
+Section: net
+Priority: extra
+Maintainer: Gregor Riepl <onitake@gmail.com>
+Build-Depends: debhelper (>= 8.0.0), autotools-dev, pkg-config, libusb-1.0-0-dev
+Standards-Version: 3.9.2
+Vcs-Git: git://github.com/onitake/daliserver.git
+Vcs-Browser: https://github.com/onitake/daliserver
+
+Package: daliserver
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, libusb-1.0-0
+Description: daliserver
+ daliserver is a command multiplexing server for the Tridonic DALI USB adapter,
+ allowing access to a DALI bus from any USB-equipped computer that supports
+ libusb.
