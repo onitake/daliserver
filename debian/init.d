@@ -15,7 +15,7 @@
 PATH=/sbin:/usr/sbin:/bin:/usr/bin
 DESC="DALI USB multiplexer"
 NAME=daliserver
-DAEMON=/usr/local/bin/$NAME
+DAEMON=/usr/bin/$NAME
 PIDFILE=/var/run/$NAME.pid
 DAEMON_ARGS="-f /var/log/daliserver.log -r $PIDFILE -b $DALISERVER_OPTS"
 SCRIPTNAME=/etc/init.d/$NAME
