@@ -2,5 +2,5 @@
 # -n enables testing mode without USB connectivity
 # -l sets the listening address (use 0.0.0.0 to listen on all interfaces)
 # -p changes the port
-DALISERVER_OPTS="-l 0.0.0.0"
+DALISERVER_OPTS=""
 

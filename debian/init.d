@@ -17,7 +17,7 @@ DESC="DALI USB multiplexer"
 NAME=daliserver
 DAEMON=/usr/bin/$NAME
 PIDFILE=/var/run/$NAME.pid
-DAEMON_ARGS="-f /var/log/daliserver.log -r $PIDFILE -b $DALISERVER_OPTS"
+DAEMON_ARGS="-f /var/log/daliserver.log -r $PIDFILE -b"
 SCRIPTNAME=/etc/init.d/$NAME
 VERBOSE=yes
 
@@ -44,7 +44,7 @@ do_start() {
 	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON --test > /dev/null \
 		|| return 1
 	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON -- \
-		$DAEMON_ARGS \
+		$DAEMON_ARGS $DALISERVER_OPTS \
 		|| return 2
 }
 
