@@ -51,9 +51,9 @@ static int enabled_syslog = 0;
 void log_vprintf(unsigned int level, const char *format, va_list args) {
 	if (level <= LOG_LEVEL_MAX) {
 #ifdef HAVE_VSYSLOG
-		// Must copy the list here or the program will crash later...
-		va_list argcopy;
-		va_copy(argcopy, args);
+		// Create copies of the argument list to allow multiple vfprintf calls
+		va_list syslogargs;
+		va_copy(syslogargs, args);
 #endif
 		if (level <= loglevel || (fp_logfile && level <= loglevel_file)) {
 			time_t now = time(NULL);
@@ -90,6 +90,10 @@ void log_vprintf(unsigned int level, const char *format, va_list args) {
 				prefixfmt = strdup("");
 				break;
 			}
+			va_list fileargs;
+			if (fp_logfile && level <= loglevel_file) {
+				va_copy(fileargs, args);
+			}
 			if (level <= loglevel) {
 				fprintf(out, "%s%s", datefmt, prefixfmt);
 				vfprintf(out, format, args);
@@ -98,9 +102,10 @@ void log_vprintf(unsigned int level, const char *format, va_list args) {
 			}
 			if (fp_logfile && level <= loglevel_file) {
 				fprintf(fp_logfile, "%s%s", datefmt, prefixfmt);
-				vfprintf(fp_logfile, format, args);
+				vfprintf(fp_logfile, format, fileargs);
 				fprintf(fp_logfile, "\n");
 				fflush(fp_logfile);
+				va_end(fileargs);
 			}
 			free(prefixfmt);
 			free(datefmt);
@@ -109,24 +114,24 @@ void log_vprintf(unsigned int level, const char *format, va_list args) {
 		if (level <= loglevel_syslog) {
 			switch (level) {
 			case LOG_LEVEL_FATAL:
-				vsyslog(LOG_ALERT, format, argcopy);
+				vsyslog(LOG_ALERT, format, syslogargs);
 				break;
 			case LOG_LEVEL_ERROR:
-				vsyslog(LOG_ERR, format, argcopy);
+				vsyslog(LOG_ERR, format, syslogargs);
 				break;
 			case LOG_LEVEL_WARN:
-				vsyslog(LOG_WARNING, format, argcopy);
+				vsyslog(LOG_WARNING, format, syslogargs);
 				break;
 			case LOG_LEVEL_INFO:
-				vsyslog(LOG_INFO, format, argcopy);
+				vsyslog(LOG_INFO, format, syslogargs);
 				break;
 			case LOG_LEVEL_DEBUG:
-				vsyslog(LOG_DEBUG, format, argcopy);
+				vsyslog(LOG_DEBUG, format, syslogargs);
 			default:
 				break;
 			}
 		}
-		va_end(argcopy);
+		va_end(syslogargs);
 #endif
 	}
 }
