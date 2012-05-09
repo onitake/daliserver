@@ -31,29 +31,73 @@ The source code is hosted on https://github.com/onitake/daliserver
 ---------------
 
 If you received daliserver in binary form, you can skip the next section and go
-straight to "Running daliserver".
+straight to "Running".
 
-To compile daliserver, you need GNU autotools, a C99 compliant C compiler
-with thread support, libusb 1.x, and associated development packages.
-For Debian based Linux operating systems, you need to install
-git build-essential autoconf libtool pkg-config libusb-1.0-0 libusb-1.0-0-dev
+To compile daliserver, you need GNU autotools, a C99 compliant C compiler,
+libusb 1.0+, and associated development packages.
+For Debian based Linux operating systems, package build scripts are provided.
+If you want to get the source code straight from its repository, you also need
+to install git.
 
-To generate the configure script and makefile templates, run
-autoreconf -i
-This should complete without error. If it doesn't, make sure all development
-packages are installed.
-Then run
-./configure
-Followed by
-make
-This should produce the daliserver binary in src/.
+If you use Debian Linux or a Debian derivate such as Ubuntu, the following
+will generate a Debian package for you:
+
+$ sudo apt-get install git dpkg-dev debhelper autotools-dev autoconf pkg-config libusb-1.0-0-dev
+
+$ tar xvfz daliserver-<version>.tar.gz
+$ cd daliserver-<version>
+or
+$ git clone git://github.com/onitake/daliserver.git
+$ cd daliserver
+
+$ autoreconf -i
+$ dpkg-buildpackage
+
+$ cd ..
+$ ls -l daliserver*.deb
+
+If everything went smoothly, you should see a newly generated package there.
+This can be installed with:
+
+$ sudo dpkg -i daliserver_<version>_<architecture>.deb
+
+daliserver will be started during boot afterwards and should already be
+running if it can find the USB adapter.
+
+If you don't use Debian, you can also build manually.
+Install the appropriate packages using your system's package manager, then:
+
+$ tar xvfz daliserver-<version>.tar.gz
+$ cd daliserver-<version>
+or
+$ git clone git://github.com/onitake/daliserver.git
+$ cd daliserver
+
+$ autoreconf -i
+$ ./configure
+$ make
+
+And install to /usr/local with
+
+$ sudo make install
+
+If you want to set up daliserver to run during boot, have a look at
+debian/init.d, it should provide hints on how to run daliserver in daemon
+mode and set log and run files accordingly.
 
 3. Running
 ----------
 
-The recommended way of running daliserver is without command line options.
-For specific network/port requirements and changing logging settings,
-please refer to the manual page.
+If you installed daliserver from a package, no further action is required.
+In case you didn't attach your DALI USB adapter before installation, you might
+have to restart the service. Consult the log file in /var/log/daliserver.log
+for errors and diagnostics. You can also simply reboot after attaching your
+adapter and fixing permissions (if necessary, see below).
+
+If you don't want to have daliserver running at boot time, or if you use a
+different operating system, you may also run daliserver directly. It will
+not fork into background by default, but print info messages to the console
+instead.
 
 Certain operating systems require special procedures to allow access to
 the DALI USB adapter. Tridonic chose to implement a device descriptor that
