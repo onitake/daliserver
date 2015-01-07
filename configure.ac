@@ -10,6 +10,7 @@ m4_include([m4/acx_pthread.m4])
 # Checks for programs.
 AC_PROG_CC
 AC_PROG_RANLIB
+AM_PROG_AR
 
 # Custom features
 AM_MAINTAINER_MODE([enable])
