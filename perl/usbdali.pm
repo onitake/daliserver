@@ -29,6 +29,7 @@ use diagnostics;
 use feature 'switch';
 use IO::Socket;
 use Socket;
+no if $] >= 5.017011, warnings => 'experimental::smartmatch';
 
 sub new {
 	my $class = shift();
@@ -39,6 +40,7 @@ sub new {
 	}
 	$self->{port} = 55825;
 	$self->{slaves} = { };
+	$self->{protocol} = 2;
 	return bless($self, $class);
 }
 
@@ -86,7 +88,7 @@ sub send {
 	if (!$self->{socket} && $self->{socket}->connected()) {
 		warn("Can't send command. Socket not connected.\n");
 	} else {
-		my $packet = pack('CC', $address, $cmd);
+		my $packet = pack('CCCC', $self->{protocol}, 0, $address, $cmd);
 		print("Writing " . length($packet) . " bytes to socket, address=$address command=$cmd\n");
 		my $socket = $self->{socket};
 		print($socket $packet);
@@ -100,17 +102,30 @@ sub receive {
 	} else {
 		my $packet;
 		$self->{socket}->read($packet, 2);
-		my ($status, $response) = unpack('CC', $packet);
-		my $ret = { status => $status, response => $response };
-		given ($status) {
-			when (0) {
-				$ret->{status} = 'ok';
+		my ($protocol, $status, $response, $pad) = unpack('CCCC', $packet);
+		if ($protocol != $self->{protocol}) {
+			warn("Invalid frame received. Protocol version=$protocol, expected $self->{protocol}\n");
+		} else {
+			my $ret = { response => $response };
+			given ($status) {
+				when (0) {
+					$ret->{status} = 'success';
+				}
+				when (1) {
+					$ret->{status} = 'response';
+				}
+				when (2) {
+					$ret->{status} = 'broadcast';
+				}
+				when (255) {
+					$ret->{status} = 'error';
+				}
+				default {
+					$ret->{status} = $status;
+				}
 			}
-			when (1) {
-				$ret->{status} = 'error';
-			}
+			return $ret;
 		}
-		return $ret;
 	}
 }
 

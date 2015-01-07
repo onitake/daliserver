@@ -61,11 +61,24 @@ const unsigned short DEFAULT_NET_PORT = 55825;
 // Bind to this address
 const char *DEFAULT_NET_ADDRESS = "127.0.0.1";
 // Network frame size
-const size_t DEFAULT_NET_FRAMESIZE = 2;
+const size_t DEFAULT_NET_FRAMESIZE = 4;
+// Network protocol number
+const size_t DEFAULT_NET_PROTOCOL = 2;
 // Default log level 
 const unsigned int DEFAULT_LOG_LEVEL = LOG_LEVEL_INFO;
 // PID file
 const char *DEFAULT_PID_FILE = "/var/run/daliserver.pid";
+
+typedef enum {
+	NET_STATUS_SUCCESS = 0,
+	NET_STATUS_RESPONSE = 1,
+	NET_STATUS_BROADCAST = 2,
+	NET_STATUS_ERROR = 255,
+} NetStatus;
+
+typedef enum {
+	NET_TYPE_SEND,
+} NetCommand;
 
 typedef struct {
 	unsigned short port;
@@ -184,8 +197,10 @@ static void dali_outband_handler(UsbDaliError err, DaliFramePtr frame, unsigned 
 		ServerPtr server = (ServerPtr) arg;
 		if (server) {
 			char rbuffer[DEFAULT_NET_FRAMESIZE];
-			rbuffer[0] = frame->address;
-			rbuffer[1] = frame->command;
+			rbuffer[0] = DEFAULT_NET_PROTOCOL;
+			rbuffer[1] = NET_STATUS_BROADCAST;
+			rbuffer[2] = frame->address;
+			rbuffer[3] = frame->command;
 			server_broadcast(server, rbuffer, sizeof(rbuffer));
 		}
 	}
@@ -193,13 +208,20 @@ static void dali_outband_handler(UsbDaliError err, DaliFramePtr frame, unsigned 
 
 static void dali_inband_handler(UsbDaliError err, DaliFramePtr frame, unsigned int response, unsigned int status, void *arg) {
 	log_debug("Inband message received");
-	if (err == USBDALI_SUCCESS) {
+	if (err == USBDALI_SUCCESS || err == USBDALI_RESPONSE) {
 		log_info("Response to (0x%02x 0x%02x): 0x%02x [0x%04x]", frame->address, frame->command, response, status);
 		ConnectionPtr conn = (ConnectionPtr) arg;
 		if (conn) {
 			char rbuffer[DEFAULT_NET_FRAMESIZE];
-			rbuffer[0] = 0;
-			rbuffer[1] = (uint8_t) response;
+			rbuffer[0] = DEFAULT_NET_PROTOCOL;
+			if (err == USBDALI_RESPONSE) {
+				rbuffer[1] = NET_STATUS_RESPONSE;
+				rbuffer[2] = (uint8_t) response;
+			} else {
+				rbuffer[1] = NET_STATUS_SUCCESS;
+				rbuffer[2] = 0;
+			}
+			rbuffer[3] = 0;
 			connection_reply(conn, rbuffer, sizeof(rbuffer));
 		}
 	} else {
@@ -207,8 +229,10 @@ static void dali_inband_handler(UsbDaliError err, DaliFramePtr frame, unsigned i
 		ConnectionPtr conn = (ConnectionPtr) arg;
 		if (conn) {
 			char rbuffer[DEFAULT_NET_FRAMESIZE];
-			rbuffer[0] = 1;
-			rbuffer[1] = 0;
+			rbuffer[0] = DEFAULT_NET_PROTOCOL;
+			rbuffer[1] = NET_STATUS_ERROR;
+			rbuffer[2] = 0;
+			rbuffer[3] = 0;
 			connection_reply(conn, rbuffer, sizeof(rbuffer));
 		}
 	}
@@ -216,11 +240,19 @@ static void dali_inband_handler(UsbDaliError err, DaliFramePtr frame, unsigned i
 
 static void net_frame_handler(void *arg, const char *buffer, size_t bufsize, ConnectionPtr conn) {
 	if (buffer && bufsize >= DEFAULT_NET_FRAMESIZE) {
-		DaliFramePtr frame = daliframe_new((uint8_t) buffer[0], (uint8_t) buffer[1]);
-		log_info("Got frame: 0x%02x 0x%02x", frame->address, frame->command);
-		UsbDaliPtr dali = (UsbDaliPtr) arg;
-		if (dali) {
-			usbdali_queue(dali, frame, conn);
+		log_info("Got frame: 0x%02x 0x%02x 0x%02x 0x%02x", buffer[0], buffer[1], buffer[2], buffer[3]);
+		if ((uint8_t) buffer[0] == DEFAULT_NET_PROTOCOL) {
+			if ((uint8_t) buffer[1] == NET_TYPE_SEND) {
+				DaliFramePtr frame = daliframe_new((uint8_t) buffer[2], (uint8_t) buffer[3]);
+				UsbDaliPtr dali = (UsbDaliPtr) arg;
+				if (dali) {
+					usbdali_queue(dali, frame, conn);
+				}
+			} else {
+				log_warn("Frame with unsupported command received: %u", buffer[1]);
+			}
+		} else {
+			log_warn("Frame with invalid protocol version received: %u", buffer[0]);
 		}
 	}
 }

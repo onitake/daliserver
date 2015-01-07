@@ -37,6 +37,7 @@ typedef struct UsbDali *UsbDaliPtr;
 
 typedef enum {
 	USBDALI_SUCCESS = 0,
+	USBDALI_RESPONSE = 1,
 	USBDALI_SEND_TIMEOUT = -1,
 	USBDALI_RECEIVE_TIMEOUT = -2,
 	USBDALI_SEND_ERROR = -3,

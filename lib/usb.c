@@ -639,7 +639,7 @@ static void usbdali_receive_callback(struct libusb_transfer *transfer) {
 								case USBDALI_TYPE_RESPONSE: {
 									log_debug("Transfer completed with status 0x%02x", in.command);
 									DaliFramePtr frame = daliframe_new(in.address, in.command);
-									dali->req_callback(USBDALI_SUCCESS, frame, in.command, in.status, dali->transaction->arg);
+									dali->req_callback(USBDALI_RESPONSE, frame, in.command, in.status, dali->transaction->arg);
 									daliframe_free(frame);
 									usbdali_transaction_free(dali->transaction);
 									dali->transaction = NULL;

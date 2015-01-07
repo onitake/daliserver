@@ -137,27 +137,44 @@ lampset.pl - Sends a level to a specific lamp
 To communicate with daliserver, you need to connect to it first.
 If you didn't specify any options, it listens on TCP 127.0.0.1:55825
 
-The protocol is simple, only two bytes are required: the bus address and the
-command code. Note however that DALI uses a specific encoding scheme, the
-address field is used for other purposes as well. Refer to perl/usbdali.pm
-for example code on how to construct messages.
+Requests have the following format:
 
-When not issuing commands, you can listen for messages from other devices
-captured on the bus. These messages will come in the form:
-  address:uint8_t
-  command:uint8_t
+  version:uint8_t (protocol version)
+  type:uint8_t (request type)
+  address:uint8_t (device address)
+  command:uint8_t (device command)
 
-To enqueue a command to be transmitted on the bus, just send this:
-  address:uint8_t
-  command:uint8_t
+Responses are defined as:
 
-A response containing the return code from the target device will be sent back:
-  response:uint8_t
-  status:uint8_t
-The status code is 0 for a succesful transfer or 1 if there was an error.
-If the target device sent a response, it will be set in the response field.
+  version:uint8_t (protocol version)
+  status:uint8_t (status code)
+  response:uint8_t (response value)
+  padding:uint8_t (must be 0)
 
-There is no padding, all messages have a fixed size of 2 bytes.
+Received out of band messages:
+
+  version:uint8_t (protocol version)
+  status:uint8_t (status code)
+  address:uint8_t (device address)
+  command:uint8_t (device command)
+
+The protocol version is currently 2. All frames are 4 bytes long.
+
+type must be 0, denoting a "Send DALI command" request.
+
+status can have one of the following values:
+
+  0:   Transfer successful, no response
+  1:   Transfer successful, response received
+  2:   Broadcast message received
+  255: Transfer error
+
+address and command are the DALI device address and command, respectively.
+
+response is the value received from the device, if available, or 0 otherwise.
+
+Successful transfers, responses and broadcast messages can be differentiated
+by the value of the status code.
 
 eDALI commands aren't supported for now.
 
