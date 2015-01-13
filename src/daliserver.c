@@ -240,7 +240,7 @@ static void dali_inband_handler(UsbDaliError err, DaliFramePtr frame, unsigned i
 
 static void net_frame_handler(void *arg, const char *buffer, size_t bufsize, ConnectionPtr conn) {
 	if (buffer && bufsize >= DEFAULT_NET_FRAMESIZE) {
-		log_info("Got frame: 0x%02x 0x%02x 0x%02x 0x%02x", buffer[0], buffer[1], buffer[2], buffer[3]);
+		log_info("Got frame: 0x%02x 0x%02x 0x%02x 0x%02x", (uint8_t) buffer[0], (uint8_t) buffer[1], (uint8_t) buffer[2], (uint8_t) buffer[3]);
 		if ((uint8_t) buffer[0] == DEFAULT_NET_PROTOCOL) {
 			if ((uint8_t) buffer[1] == NET_TYPE_SEND) {
 				DaliFramePtr frame = daliframe_new((uint8_t) buffer[2], (uint8_t) buffer[3]);
@@ -249,10 +249,10 @@ static void net_frame_handler(void *arg, const char *buffer, size_t bufsize, Con
 					usbdali_queue(dali, frame, conn);
 				}
 			} else {
-				log_warn("Frame with unsupported command received: %u", buffer[1]);
+				log_warn("Frame with unsupported command received: %u", (uint8_t) buffer[1]);
 			}
 		} else {
-			log_warn("Frame with invalid protocol version received: %u", buffer[0]);
+			log_warn("Frame with invalid protocol version received: %u", (uint8_t) buffer[0]);
 		}
 	}
 }
