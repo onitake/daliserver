@@ -28,6 +28,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/stat.h>
 
 void hexdump(const uint8_t *data, size_t length) {
 	size_t line;

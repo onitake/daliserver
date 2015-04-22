@@ -46,7 +46,7 @@ AC_TYPE_UINT8_T
 # Checks for library functions.
 AC_FUNC_MALLOC
 AC_FUNC_REALLOC
-AC_CHECK_FUNCS([memset socket strerror getopt strtol fdopen lockf], [], [
+AC_CHECK_FUNCS([memset socket strerror getopt strtol fdopen lockf umask], [], [
 	AC_MSG_FAILURE([$ac_func is required])
 ])
 # Optional
