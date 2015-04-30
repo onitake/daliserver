@@ -34,10 +34,13 @@ If you received daliserver in binary form, you can skip the next section and go
 straight to "Running".
 
 To compile daliserver, you need GNU autotools, a C99 compliant C compiler,
-libusb 1.0+, and associated development packages.
+libusb 1.0+, pkg-config and associated development packages.
 For Debian based Linux operating systems, package build scripts are provided.
 If you want to get the source code straight from its repository, you also need
 to install git.
+
+2.1 Debian and Ubuntu
+---------------------
 
 If you use Debian Linux or a Debian derivate such as Ubuntu, the following
 will generate a Debian package for you:
@@ -64,6 +67,9 @@ $ sudo dpkg -i daliserver_<version>_<architecture>.deb
 daliserver will be started during boot afterwards and should already be
 running if it can find the USB adapter.
 
+2.2 Other Linux distributions
+-----------------------------
+
 If you don't use Debian, you can also build manually.
 Install the appropriate packages using your system's package manager, then:
 
@@ -84,6 +90,52 @@ $ sudo make install
 If you want to set up daliserver to run during boot, have a look at
 debian/init.d, it should provide hints on how to run daliserver in daemon
 mode and set log and run files accordingly.
+
+2.3 Mac OS X
+------------
+
+On Mac OS X, you will need to install both Apple developer tools (Xcode with
+command line utilities) and pkg-config, libusb-1.0, automake and autoconf.
+There are different ways to achieve this, the easiest is probably with the
+help of the Homenbrew utility.
+
+Xcode can be obtained from the Mac App Store or the Apple Developer Site.
+
+Next, follow the instructions on http://brew.sh/ to install Homebrew, then
+install the required packages from a Terminal prompt:
+
+brew install pkg-config libusb autoconf automake
+
+If this step throws any errors during the link step, you might need to clean
+up conflicting files or find a way around them. This is outside the scope of
+this documentation.
+
+Obtaining and compiling daliserver works like on Linux:
+
+$ tar xvfz daliserver-<version>.tar.gz
+$ cd daliserver-<version>
+or
+$ git clone git://github.com/onitake/daliserver.git
+$ cd daliserver
+
+$ autoreconf -i
+$ ./configure
+$ make
+
+And install to /usr/local with
+
+$ sudo make install
+
+2.4 Windows
+-----------
+
+(TODO, untested)
+
+Obtain cygwin from http://cygwin.com/ and install required packages:
+gcc libusb pkg-config automake autoconf git
+
+Then, open a command line prompt and checkout and compile daliserver like
+on Linux.
 
 3. Running
 ----------
