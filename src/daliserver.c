@@ -104,6 +104,8 @@ static void show_help();
 static void show_banner();
 
 int main(int argc, char *const argv[]) {
+	int error = 0;
+	
 	log_debug("Parsing options");
 	Options *opts = parse_opt(argc, argv);
 	if (!opts) {
@@ -132,50 +134,64 @@ int main(int argc, char *const argv[]) {
 	log_debug("Initializing dispatch queue");
 	DispatchPtr dispatch = dispatch_new();
 	if (!dispatch) {
-		return -1;
-	}
-	//dispatch_set_timeout(dispatch, 100);
+		error = -1;
+	} else {
+		//dispatch_set_timeout(dispatch, 100);
 
-	UsbDaliPtr usb = NULL;
-	if (!opts->dryrun) {
-		log_debug("Initializing USB connection");
-		usb = usbdali_open(NULL, dispatch);
-		if (!usb) {
-			return -1;
+		UsbDaliPtr usb = NULL;
+		if (!opts->dryrun) {
+			log_debug("Initializing USB connection");
+			usb = usbdali_open(NULL, dispatch);
+			if (!usb) {
+				error = -1;
+			}
 		}
+
+		if (opts->dryrun || usb) {
+			log_debug("Initializing server");
+			ServerPtr server = server_open(dispatch, opts->address, opts->port, DEFAULT_NET_FRAMESIZE, net_frame_handler, usb);
+
+			if (!server) {
+				error = -1;
+			} else {
+				if (usb) {
+					usbdali_set_outband_callback(usb, dali_outband_handler, server);
+					usbdali_set_inband_callback(usb, dali_inband_handler);
+				}
+
+				log_debug("Creating shutdown notifier");
+				killsocket = ipc_new();
+				
+				if (!killsocket) {
+					error = -1;
+				} else {
+					ipc_register(killsocket, dispatch);
+
+					log_info("Server ready, waiting for events");
+					running = 1;
+					signal(SIGTERM, signal_handler);
+					signal(SIGINT, signal_handler);
+					while (running && dispatch_run(dispatch, usbdali_get_timeout(usb)));
+
+					log_info("Shutting daliserver down");
+					ipc_free(killsocket);
+				}
+				
+				server_close(server);
+			}
+			
+			if (usb) {
+				usbdali_close(usb);
+			}
+		}
+
+		dispatch_free(dispatch);
 	}
 
-	log_debug("Initializing server");
-	ServerPtr server = server_open(dispatch, opts->address, opts->port, DEFAULT_NET_FRAMESIZE, net_frame_handler, usb);
-	if (!server) {
-		return -1;
-	}
-
-	usbdali_set_outband_callback(usb, dali_outband_handler, server);
-	usbdali_set_inband_callback(usb, dali_inband_handler);
-
-	log_debug("Creating shutdown notifier");
-	killsocket = ipc_new();
-	if (!killsocket) {
-		return -1;
-	}
-	ipc_register(killsocket, dispatch);
-
-	log_info("Server ready, waiting for events");
-	running = 1;
-	signal(SIGTERM, signal_handler);
-	signal(SIGINT, signal_handler);
-	while (running && dispatch_run(dispatch, usbdali_get_timeout(usb)));
-
-	log_info("Shutting daliserver down");
-	ipc_free(killsocket);
-	server_close(server);
-	usbdali_close(usb);
-	dispatch_free(dispatch);
 	free_opt(opts);
-
+	
 	log_info("Exiting");
-	return 0;
+	return error;
 }
 
 static void signal_handler(int sig) {
@@ -243,9 +259,9 @@ static void net_frame_handler(void *arg, const char *buffer, size_t bufsize, Con
 		log_info("Got frame: 0x%02x 0x%02x 0x%02x 0x%02x", (uint8_t) buffer[0], (uint8_t) buffer[1], (uint8_t) buffer[2], (uint8_t) buffer[3]);
 		if ((uint8_t) buffer[0] == DEFAULT_NET_PROTOCOL) {
 			if ((uint8_t) buffer[1] == NET_TYPE_SEND) {
-				DaliFramePtr frame = daliframe_new((uint8_t) buffer[2], (uint8_t) buffer[3]);
 				UsbDaliPtr dali = (UsbDaliPtr) arg;
 				if (dali) {
+					DaliFramePtr frame = daliframe_new((uint8_t) buffer[2], (uint8_t) buffer[3]);
 					usbdali_queue(dali, frame, conn);
 				}
 			} else {
