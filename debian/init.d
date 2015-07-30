@@ -17,7 +17,7 @@ DESC="DALI USB multiplexer"
 NAME=daliserver
 DAEMON=/usr/bin/$NAME
 PIDFILE=/var/run/$NAME.pid
-DAEMON_ARGS="-f /var/log/daliserver.log -r $PIDFILE -b"
+DAEMON_ARGS="-r $PIDFILE -b"
 SCRIPTNAME=/etc/init.d/$NAME
 VERBOSE=yes
 
