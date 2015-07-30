@@ -366,6 +366,38 @@ static void usbdali_remove_pollfd(int fd, void *user_data) {
 	}
 }
 
+static libusb_device_handle *usbdali_find_device(libusb_context *context) {
+	struct libusb_device **devs;
+	struct libusb_device *found = NULL;
+	struct libusb_device *dev;
+	struct libusb_device_handle *handle = NULL;
+	size_t i = 0;
+	int r;
+
+	if (libusb_get_device_list(context, &devs) < 0)
+		return NULL;
+
+	while ((dev = devs[i++]) != NULL) {
+		struct libusb_device_descriptor desc;
+		r = libusb_get_device_descriptor(dev,&desc);
+		if (r < 0)
+			goto out;
+		if (desc.idVendor == VENDOR_ID && desc.idProduct == PRODUCT_ID) {
+		  found = dev;
+		  break;
+		}
+	}
+
+	if (found) {
+		r = libusb_open(found, &handle);
+		if (r < 0)
+			handle = NULL;
+	}
+ out:
+	libusb_free_device_list(devs, 1);
+	return handle;
+}
+
 UsbDaliPtr usbdali_open(libusb_context *context, DispatchPtr dispatch) {
 	if (!dispatch) {
 		log_error("No dispatch queue specified");
@@ -384,7 +416,7 @@ UsbDaliPtr usbdali_open(libusb_context *context, DispatchPtr dispatch) {
 		free_context = 0;
 	}
 
-	libusb_device_handle *handle = libusb_open_device_with_vid_pid(context, VENDOR_ID, PRODUCT_ID);
+	libusb_device_handle *handle = usbdali_find_device(context);
 	if (handle) {
 		libusb_device *device = libusb_get_device(handle);
 
