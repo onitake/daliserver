@@ -60,7 +60,7 @@ const char *usbdali_error_string(UsbDaliError error);
 // Open the first attached USBDali adapter.
 // Also creates a libusb context if context is NULL.
 // The dispatch queue is mandatory
-UsbDaliPtr usbdali_open(libusb_context *context, DispatchPtr dispatch);
+UsbDaliPtr usbdali_open(libusb_context *context, DispatchPtr dispatch, const char *usbdev);
 // Stop running transfers and close the device, then finalize the libusb context
 // if it was created by usbdali_open.
 void usbdali_close(UsbDaliPtr dali);

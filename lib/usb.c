@@ -366,13 +366,21 @@ static void usbdali_remove_pollfd(int fd, void *user_data) {
 	}
 }
 
-static libusb_device_handle *usbdali_find_device(libusb_context *context) {
+static libusb_device_handle *usbdali_find_device(libusb_context *context, const char *usbdev) {
 	struct libusb_device **devs;
 	struct libusb_device *found = NULL;
 	struct libusb_device *dev;
 	struct libusb_device_handle *handle = NULL;
+	unsigned int busnum,devnum;
 	size_t i = 0;
 	int r;
+
+	if (usbdev) {
+		if (sscanf(usbdev,"%u:%u",&busnum,&devnum)!=2) {
+			log_error("Bad USB device address specified");
+			return NULL;
+		}
+	}
 
 	if (libusb_get_device_list(context, &devs) < 0)
 		return NULL;
@@ -383,8 +391,16 @@ static libusb_device_handle *usbdali_find_device(libusb_context *context) {
 		if (r < 0)
 			goto out;
 		if (desc.idVendor == VENDOR_ID && desc.idProduct == PRODUCT_ID) {
-		  found = dev;
-		  break;
+			if (usbdev) {
+				if (libusb_get_bus_number(dev) == busnum &&
+						libusb_get_device_address(dev) == devnum) {
+					found = dev;
+					break;
+				}
+			} else {
+				found = dev;
+				break;
+			}
 		}
 	}
 
@@ -398,7 +414,7 @@ static libusb_device_handle *usbdali_find_device(libusb_context *context) {
 	return handle;
 }
 
-UsbDaliPtr usbdali_open(libusb_context *context, DispatchPtr dispatch) {
+UsbDaliPtr usbdali_open(libusb_context *context, DispatchPtr dispatch, const char *usbdev) {
 	if (!dispatch) {
 		log_error("No dispatch queue specified");
 		return NULL;
@@ -416,7 +432,7 @@ UsbDaliPtr usbdali_open(libusb_context *context, DispatchPtr dispatch) {
 		free_context = 0;
 	}
 
-	libusb_device_handle *handle = usbdali_find_device(context);
+	libusb_device_handle *handle = usbdali_find_device(context,usbdev);
 	if (handle) {
 		libusb_device *device = libusb_get_device(handle);
 

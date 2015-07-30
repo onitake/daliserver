@@ -89,6 +89,7 @@ typedef struct {
 	char *logfile;
 	int background;
 	char *pidfile;
+	char *usbdev;
 } Options;
 
 static IpcPtr killsocket;
@@ -139,7 +140,7 @@ int main(int argc, char *const argv[]) {
 	UsbDaliPtr usb = NULL;
 	if (!opts->dryrun) {
 		log_debug("Initializing USB connection");
-		usb = usbdali_open(NULL, dispatch);
+		usb = usbdali_open(NULL, dispatch, opts->usbdev);
 		if (!usb) {
 			return -1;
 		}
@@ -267,10 +268,11 @@ static Options *parse_opt(int argc, char *const argv[]) {
 	opts->logfile = NULL;
 	opts->background = 0;
 	opts->pidfile = NULL;
+	opts->usbdev = NULL;
 
 	int opt;
 	opterr = 0;
-	while ((opt = getopt(argc, argv, "d:l:p:nsf:br:")) != -1) {
+	while ((opt = getopt(argc, argv, "d:l:p:nsf:br:u:")) != -1) {
 		switch (opt) {
 		case 'd':
 			if (strcmp(optarg, "fatal") == 0) {
@@ -316,6 +318,9 @@ static Options *parse_opt(int argc, char *const argv[]) {
 			free(opts->pidfile);
 			opts->pidfile = strdup(optarg);
 			break;
+		case 'u':
+			opts->usbdev = strdup(optarg);
+			break;
 		default:
 			free_opt(opts);
 			return NULL;
@@ -354,6 +359,7 @@ static void show_help() {
 	}
 	fprintf(stderr, "-b            Fork into background (implies -r)\n");
 	fprintf(stderr, "-r <file>     Save PID to file (default=/var/run/daliserver.pid)\n");
+	fprintf(stderr, "-u <bus:dev>  Only drive the USB device at bus:dev\n");
 	fprintf(stderr, "\n");
 }
 
