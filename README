@@ -45,7 +45,14 @@ to install git.
 If you use Debian Linux or a Debian derivate such as Ubuntu, the following
 will generate a Debian package for you:
 
-$ sudo apt-get install git dpkg-dev debhelper autotools-dev autoconf pkg-config libusb-1.0-0-dev
+$ sudo apt-get install \
+      git \
+      dpkg-dev \
+      debhelper \
+      autotools-dev \
+      autoconf \
+      pkg-config \
+      libusb-1.0-0-dev
 
 $ tar xvfz daliserver-<version>.tar.gz
 $ cd daliserver-<version>
