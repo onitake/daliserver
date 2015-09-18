@@ -27,7 +27,7 @@
 /src/daliserver
 /stamp-h1
 /test-driver
-/test/dali-test-dispatch-000-96w8cI
+/test/dali-test-dispatch-*
 /test/test-suite.log
 /test/testarray
 /test/testarray.log
@@ -46,3 +46,4 @@
 /test/testsock.trs
 Makefile
 Makefile.in
+
