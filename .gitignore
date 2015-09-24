@@ -24,6 +24,8 @@
 /depcomp
 /install-sh
 /missing
+/lib/.deps/
+/src/.deps/
 /src/daliserver
 /stamp-h1
 /test-driver
@@ -35,5 +37,6 @@
 /test/testlist
 /test/testpack
 /test/testsock
+/test/.deps/
 Makefile
 Makefile.in
