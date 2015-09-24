@@ -162,6 +162,7 @@ static void usbdali_receive_callback(struct libusb_transfer *transfer);
 static int usbdali_receive(UsbDaliPtr dali);
 static void usbdali_send_callback(struct libusb_transfer *transfer);
 static int usbdali_send(UsbDaliPtr dali, UsbDaliTransaction *transaction);
+static libusb_device_handle *usbdali_find_device(libusb_context *context);
 
 const char *libusb_error_string(int error) {
 	switch (error) {
@@ -366,6 +367,48 @@ static void usbdali_remove_pollfd(int fd, void *user_data) {
 	}
 }
 
+static libusb_device_handle *usbdali_find_device(libusb_context *context) {
+	struct libusb_device_handle *handle = NULL;
+	
+	struct libusb_device **devs = NULL;
+	ssize_t count = libusb_get_device_list(context, &devs);
+	if (count >= 0) {
+		struct libusb_device *found = NULL;
+		
+		size_t i;
+		for (i = 0; i < count && found == NULL; i++) {
+			struct libusb_device *dev = devs[i];
+			
+			struct libusb_device_descriptor desc;
+			memset(&desc, 0, sizeof(desc));
+			int err = libusb_get_device_descriptor(dev, &desc);
+			if (err == LIBUSB_SUCCESS) {
+				if (desc.idVendor == VENDOR_ID && desc.idProduct == PRODUCT_ID) {
+					found = dev;
+				} else {
+					log_debug("Ignoring USB device [VID=0x%04x PID=0x%04x]", desc.idVendor, desc.idProduct);
+				}
+			} else {
+				log_warn("Error getting USB device descriptor: %s", libusb_error_string(err));
+			}
+		}
+		
+		if (found != NULL) {
+			int err = libusb_open(found, &handle);
+			if (err < LIBUSB_SUCCESS) {
+				log_error("Error opening USB device: %s", libusb_error_string(err));
+				handle = NULL;
+			}
+		}
+		
+		libusb_free_device_list(devs, 1);
+	} else {
+		log_error("Error enumerating USB devices: %s", libusb_error_string((int) count));
+	}
+	
+	return handle;
+}
+
 UsbDaliPtr usbdali_open(libusb_context *context, DispatchPtr dispatch) {
 	if (!dispatch) {
 		log_error("No dispatch queue specified");
@@ -384,7 +427,7 @@ UsbDaliPtr usbdali_open(libusb_context *context, DispatchPtr dispatch) {
 		free_context = 0;
 	}
 
-	libusb_device_handle *handle = libusb_open_device_with_vid_pid(context, VENDOR_ID, PRODUCT_ID);
+	libusb_device_handle *handle = usbdali_find_device(context);
 	if (handle) {
 		libusb_device *device = libusb_get_device(handle);
 
