@@ -1,0 +1,23 @@
+# daliserver
+# 
+# daliserver is a command multiplexing server for the Tridonic DALI
+# USB adapter, allowing access to a DALI bus from any USB-equipped
+# computer that supports libusb.
+
+description   "Command multiplexing server for Tridonic DALI USB"
+author        "Gregor Riepl <onitake@gmail.com>"
+
+start on usb-device-added ID_MODEL_ID='0020' ID_VENDOR_ID='17b5'
+stop on usb-device-removed ID_MODEL_ID='0020' ID_VENDOR_ID='17b5'
+
+instance daliserver:$BUSNUM:$DEVNUM
+
+respawn
+
+# The device serial number is in ID_SERIAL_SHORT; this can be
+# used in /etc/default/daliserver to set options per device.
+
+script
+  . /etc/default/daliserver
+  exec /usr/bin/daliserver $DALISERVER_OPTS -u $BUSNUM:$DEVNUM
+end script
