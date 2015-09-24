@@ -1,4 +1,4 @@
-.Dd November 24, 2011
+.Dd July 10, 2015
 .Os None
 .Dt DALISERVER 1
 .Sh NAME
@@ -12,6 +12,8 @@
 .Op Fl n
 .Op Fl s
 .Op Fl f Ar logfile
+.Op Fl b
+.Op Fl r Ar pidfile
 .Sh DESCRIPTION
 .Bl -tag
 .It Fl d Ar loglevel
@@ -29,13 +31,18 @@ Enable syslog logging. Only error and fatal messages are logged.
 .It Fl f Ar logfile
 Send log to a file. If debug messages were enabled during compilation, logs
 debug messages. Only info messages otherwise.
+.It Fl b
+Start daliserver in daemon mode.
+.It Fl r Ar pidfile
+Sets the file where daliserver's PID will be stored in. Normally, this is
+only used in conjunction with -b, and will default to /var/run/daliserver.pid
 .El
 .Sh AUTHORS
 .Bl -item
 .It
 Gregor Riepl <onitake@gmail.com>
 .It
-Johannes <johannes@deragent.net>
+Johannes Wüthrich <johannes@deragent.net>
 .El
 .Sh BUGS
 Probably a lot. The communication protocol was reverse engineered by
