@@ -314,7 +314,7 @@ static Options *parse_opt(int argc, char *const argv[]) {
 			opts->address = strdup(optarg);
 			break;
 		case 'p':
-			opts->port = strtol(optarg, NULL, 0) & 0xffff;
+			opts->port = (unsigned short) (strtol(optarg, NULL, 0) & 0xffff);
 			break;
 		case 'n':
 			opts->dryrun = 1;
@@ -356,6 +356,7 @@ static void free_opt(Options *opts) {
 	if (opts) {
 		free(opts->address);
 		free(opts->logfile);
+		free(opts->pidfile);
 		free(opts);
 	}
 }
