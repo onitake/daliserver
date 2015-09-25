@@ -433,6 +433,7 @@ UsbDaliPtr usbdali_open(libusb_context *context, DispatchPtr dispatch, int busnu
 		free_context = 0;
 	}
 
+	log_debug("Trying to find DALI USB device at %d:%d", busnum, devnum);
 	libusb_device_handle *handle = usbdali_find_device(context, busnum, devnum);
 	if (handle) {
 		libusb_device *device = libusb_get_device(handle);
