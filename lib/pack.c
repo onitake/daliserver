@@ -48,6 +48,11 @@
 # error Unknown byte order!
 #endif
 
+typedef union {
+	float f;
+	uint32_t i;
+} float_to_uint32_t;
+
 enum {
 	PACK_BYTE = 'c',
 	PACK_UBYTE = 'C',
@@ -157,18 +162,18 @@ char *pack(const char *format, char *data, size_t *size, ...) {
 				out += 4;
 			} break;
 			case PACK_FLOAT: {
-				float value = (float) va_arg(args, double);
-				uint32_t cast = *(uint32_t *) &value;
+				float_to_uint32_t value;
+				value.f = (float) va_arg(args, double);
 				if (little) {
-					out[0] = cast & 0xff;
-					out[1] = (cast >> 8) & 0xff;
-					out[2] = (cast >> 16) & 0xff;
-					out[3] = (cast >> 24) & 0xff;
+					out[0] = value.i & 0xff;
+					out[1] = (value.i >> 8) & 0xff;
+					out[2] = (value.i >> 16) & 0xff;
+					out[3] = (value.i >> 24) & 0xff;
 				} else {
-					out[0] = (cast >> 24) & 0xff;
-					out[1] = (cast >> 16) & 0xff;
-					out[2] = (cast >> 8) & 0xff;
-					out[3] = cast & 0xff;
+					out[0] = (value.i >> 24) & 0xff;
+					out[1] = (value.i >> 16) & 0xff;
+					out[2] = (value.i >> 8) & 0xff;
+					out[3] = value.i & 0xff;
 				}
 				out += 4;
 			} break;
