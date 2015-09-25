@@ -83,6 +83,9 @@ void ipc_notify(IpcPtr ipc) {
 	if (ipc) {
 		uint8_t dummy = 0;
 		ssize_t wrbytes = write(ipc_write_socket(ipc), &dummy, sizeof(dummy));
+		if (wrbytes < 0) {
+			log_error("Error notifying IPC pipe");
+		}
 	}
 }
 
@@ -105,5 +108,8 @@ static void ipc_read_zero(void *arg) {
 	if (ipc) {
 		uint8_t dummy = 0;
 		ssize_t rdbytes = read(ipc_read_socket(ipc), &dummy, sizeof(dummy));
+		if (rdbytes < 0) {
+			log_error("Error reading IPC pipe signal");
+		}
 	}
 }
