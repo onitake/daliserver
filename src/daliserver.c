@@ -89,6 +89,8 @@ typedef struct {
 	char *logfile;
 	int background;
 	char *pidfile;
+	int usbbus;
+	int usbdev;
 } Options;
 
 static IpcPtr killsocket;
@@ -100,6 +102,7 @@ static void dali_inband_handler(UsbDaliError err, DaliFramePtr frame, unsigned i
 static void net_frame_handler(void *arg, const char *buffer, size_t bufsize, ConnectionPtr conn);
 static Options *parse_opt(int argc, char *const argv[]);
 static void free_opt(Options *opts);
+static int split_usbdev(const char *arg, int *usbbus, int *usbdev);
 static void show_help();
 static void show_banner();
 
@@ -141,7 +144,7 @@ int main(int argc, char *const argv[]) {
 		UsbDaliPtr usb = NULL;
 		if (!opts->dryrun) {
 			log_debug("Initializing USB connection");
-			usb = usbdali_open(NULL, dispatch);
+			usb = usbdali_open(NULL, dispatch, opts->usbbus, opts->usbdev);
 			if (!usb) {
 				error = -1;
 			}
@@ -283,10 +286,12 @@ static Options *parse_opt(int argc, char *const argv[]) {
 	opts->logfile = NULL;
 	opts->background = 0;
 	opts->pidfile = NULL;
+	opts->usbbus = -1;
+	opts->usbdev = -1;
 
 	int opt;
 	opterr = 0;
-	while ((opt = getopt(argc, argv, "d:l:p:nsf:br:")) != -1) {
+	while ((opt = getopt(argc, argv, "d:l:p:nsf:br:u:")) != -1) {
 		switch (opt) {
 		case 'd':
 			if (strcmp(optarg, "fatal") == 0) {
@@ -332,6 +337,12 @@ static Options *parse_opt(int argc, char *const argv[]) {
 			free(opts->pidfile);
 			opts->pidfile = strdup(optarg);
 			break;
+		case 'u':
+			if (!split_usbdev(optarg, &opts->usbbus, &opts->usbdev)) {
+				free_opt(opts);
+				return NULL;
+			}
+			break;
 		default:
 			free_opt(opts);
 			return NULL;
@@ -347,6 +358,22 @@ static void free_opt(Options *opts) {
 		free(opts->logfile);
 		free(opts);
 	}
+}
+
+static int split_usbdev(const char *arg, int *usbbus, int *usbdev) {
+	if (arg && usbbus && usbdev) {
+		char *colon = strchr(arg, ':');
+		if (colon) {
+			long bus = strtol(arg, NULL, 0);
+			long dev = strtol(colon + 1, NULL, 0);
+			if (bus >= 0 && bus <= INT_MAX && dev >= 0 && dev <= INT_MAX) {
+				*usbbus = (int) bus;
+				*usbdev = (int) dev;
+				return 1;
+			}
+		}
+	}
+	return 0;
 }
 
 static void show_help() {
@@ -370,6 +397,7 @@ static void show_help() {
 	}
 	fprintf(stderr, "-b            Fork into background (implies -r)\n");
 	fprintf(stderr, "-r <file>     Save PID to file (default=/var/run/daliserver.pid)\n");
+	fprintf(stderr, "-u <bus:dev>  Only drive the USB device at bus:dev\n");
 	fprintf(stderr, "\n");
 }
 

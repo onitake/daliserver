@@ -162,7 +162,7 @@ static void usbdali_receive_callback(struct libusb_transfer *transfer);
 static int usbdali_receive(UsbDaliPtr dali);
 static void usbdali_send_callback(struct libusb_transfer *transfer);
 static int usbdali_send(UsbDaliPtr dali, UsbDaliTransaction *transaction);
-static libusb_device_handle *usbdali_find_device(libusb_context *context);
+static libusb_device_handle *usbdali_find_device(libusb_context *context, int busnum, int devum);
 
 const char *libusb_error_string(int error) {
 	switch (error) {
@@ -367,7 +367,7 @@ static void usbdali_remove_pollfd(int fd, void *user_data) {
 	}
 }
 
-static libusb_device_handle *usbdali_find_device(libusb_context *context) {
+static libusb_device_handle *usbdali_find_device(libusb_context *context, int busnum, int devnum) {
 	struct libusb_device_handle *handle = NULL;
 	
 	struct libusb_device **devs = NULL;
@@ -384,7 +384,13 @@ static libusb_device_handle *usbdali_find_device(libusb_context *context) {
 			int err = libusb_get_device_descriptor(dev, &desc);
 			if (err == LIBUSB_SUCCESS) {
 				if (desc.idVendor == VENDOR_ID && desc.idProduct == PRODUCT_ID) {
-					found = dev;
+					if (busnum >= 0 && devnum >= 0) {
+						if (libusb_get_bus_number(dev) == busnum && libusb_get_device_address(dev) == devnum) {
+							found = dev;
+						}
+					} else {
+						found = dev;
+					}
 				} else {
 					log_debug("Ignoring USB device [VID=0x%04x PID=0x%04x]", desc.idVendor, desc.idProduct);
 				}
@@ -409,7 +415,7 @@ static libusb_device_handle *usbdali_find_device(libusb_context *context) {
 	return handle;
 }
 
-UsbDaliPtr usbdali_open(libusb_context *context, DispatchPtr dispatch) {
+UsbDaliPtr usbdali_open(libusb_context *context, DispatchPtr dispatch, int busnum, int devnum) {
 	if (!dispatch) {
 		log_error("No dispatch queue specified");
 		return NULL;
@@ -427,7 +433,7 @@ UsbDaliPtr usbdali_open(libusb_context *context, DispatchPtr dispatch) {
 		free_context = 0;
 	}
 
-	libusb_device_handle *handle = usbdali_find_device(context);
+	libusb_device_handle *handle = usbdali_find_device(context, busnum, devnum);
 	if (handle) {
 		libusb_device *device = libusb_get_device(handle);
 

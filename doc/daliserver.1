@@ -12,6 +12,7 @@
 .Op Fl n
 .Op Fl s
 .Op Fl f Ar logfile
+.Op Fl u Ar bus:dev
 .Op Fl b
 .Op Fl r Ar pidfile
 .Sh DESCRIPTION
@@ -31,6 +32,8 @@ Enable syslog logging. Only error and fatal messages are logged.
 .It Fl f Ar logfile
 Send log to a file. If debug messages were enabled during compilation, logs
 debug messages. Only info messages otherwise.
+.It Fl u Ar bus:dev
+Specify the USB bus and device number for daliserver to drive.
 .It Fl b
 Start daliserver in daemon mode.
 .It Fl r Ar pidfile
