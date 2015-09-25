@@ -3,14 +3,21 @@ AC_INIT([daliserver], [0.2], [onitake@gmail.com])
 AM_INIT_AUTOMAKE([foreign -Wall -Werror])
 AC_CONFIG_SRCDIR([src/daliserver.c])
 AC_CONFIG_HEADERS([config.h])
+AC_CONFIG_MACRO_DIR([m4])
 
-# Include external checks
-m4_include([m4/acx_pthread.m4])
+# Include autoconf macros
 
 # Checks for programs.
 AC_PROG_CC
 AC_PROG_RANLIB
 AM_PROG_AR
+
+# Test and apply compiler flags
+AX_CFLAGS_WARN_ALL
+AC_PROG_CC_C99
+if test "$ac_cv_prog_cc_c99" = "no"; then
+	AC_MSG_WARN([ISO C99 support not available, compilation may fail])
+fi
 
 # Custom features
 AM_MAINTAINER_MODE([enable])

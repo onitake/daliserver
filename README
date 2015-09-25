@@ -5,7 +5,7 @@
 2. Installation
 3. Running
 4. Communication Protocol
-5. Authors
+5. Copyright
 6. References
 
 1. About
@@ -230,11 +230,20 @@ by the value of the status code.
 
 eDALI commands aren't supported for now.
 
-5. Authors
-----------
+5. Copyright
+------------
 
+daliserver is (c) copyright 2010-2015 by
 Gregor Riepl <onitake@gmail.com>
 Johannes Wüthrich <johannes@deragent.net>
+and others.
+
+All rights reserved.
+See the AUTHORS file for a list of contributors.
+See the LICENSE file for the license terms.
+
+autoconf macros in the m4/ subdirectory are governed by a different license,
+see m4/LICENSE for details.
 
 6. References
 -------------
