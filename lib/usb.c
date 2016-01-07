@@ -64,6 +64,7 @@ struct UsbDali {
 	void *event_arg;
 	ssize_t event_index;
 	int shutdown;
+	int detached;
 };
 
 typedef struct {
@@ -460,12 +461,16 @@ UsbDaliPtr usbdali_open(libusb_context *context, DispatchPtr dispatch, int busnu
 
 						err = libusb_kernel_driver_active(handle, 0);
 						if (err >= LIBUSB_SUCCESS) {
+							int detached;
 							if (err == 1) {
 								log_info("Kernel driver is active, trying to detach");
+								detached = 1;
 								err = libusb_detach_kernel_driver(handle, 0);
 								if (err != LIBUSB_SUCCESS) {
 									log_error("Error detaching interface from kernel: %s", libusb_error_string(err));
 								}
+							} else {
+								detached = 0;
 							}
 
 							err = libusb_set_configuration(handle, CONFIGURATION_VALUE);
@@ -500,6 +505,7 @@ UsbDaliPtr usbdali_open(libusb_context *context, DispatchPtr dispatch, int busnu
 												dali->event_arg = NULL;
 												dali->event_index = -1;
 												dali->shutdown = 0;
+												dali->detached = detached;
 
 												size_t i;
 												for (i = 0; usbfds[i]; i++) {
@@ -533,9 +539,11 @@ UsbDaliPtr usbdali_open(libusb_context *context, DispatchPtr dispatch, int busnu
 							} else {
 								log_error("Error setting configuration: %s", libusb_error_string(err));
 							}
-							err = libusb_attach_kernel_driver(handle, 0);
-							if (err != LIBUSB_SUCCESS) {
-								log_error("Error reattaching interface: %s", libusb_error_string(err));
+							if (detached) {
+								err = libusb_attach_kernel_driver(handle, 0);
+								if (err != LIBUSB_SUCCESS) {
+									log_error("Error reattaching interface: %s", libusb_error_string(err));
+								}
 							}
 						} else {
 							log_error("Error getting interface active state: %s", libusb_error_string(err));
@@ -584,10 +592,12 @@ void usbdali_close(UsbDaliPtr dali) {
 
 		libusb_release_interface(dali->handle, 0);
 
-		log_info("Reattaching kernel driver");
-		int err = libusb_attach_kernel_driver(dali->handle, 0);
-		if (err != LIBUSB_SUCCESS) {
-			log_error("Error reattaching interface: %s", libusb_error_string(err));
+		if (dali->detached) {
+			log_info("Reattaching kernel driver");
+			int err = libusb_attach_kernel_driver(dali->handle, 0);
+			if (err != LIBUSB_SUCCESS) {
+				log_error("Error reattaching interface: %s", libusb_error_string(err));
+			}
 		}
 
 		libusb_close(dali->handle);
