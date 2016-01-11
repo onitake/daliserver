@@ -457,8 +457,6 @@ UsbDaliPtr usbdali_open(libusb_context *context, DispatchPtr dispatch, int busnu
 						log_debug("Input endpoint: 0x%02x", endpoint_in);
 						log_debug("Output endpoint: 0x%02x", endpoint_out);
 
-						libusb_free_config_descriptor(config);
-
 						err = libusb_kernel_driver_active(handle, 0);
 						if (err >= LIBUSB_SUCCESS) {
 							int detached;
@@ -484,6 +482,8 @@ UsbDaliPtr usbdali_open(libusb_context *context, DispatchPtr dispatch, int busnu
 										if (pollfds && usbfds) {
 											UsbDaliPtr dali = malloc(sizeof(struct UsbDali));
 											if (dali) {
+												libusb_free_config_descriptor(config);
+												
 												dali->context = context;
 												dali->dispatch = dispatch;
 												dali->free_context = free_context;
