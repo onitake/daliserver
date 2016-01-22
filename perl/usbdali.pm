@@ -101,7 +101,7 @@ sub receive {
 		warn("Can't receive command. Socket not connected.\n");
 	} else {
 		my $packet;
-		$self->{socket}->read($packet, 2);
+		$self->{socket}->read($packet, 4);
 		my ($protocol, $status, $response, $pad) = unpack('CCCC', $packet);
 		if ($protocol != $self->{protocol}) {
 			warn("Invalid frame received. Protocol version=$protocol, expected $self->{protocol}\n");
