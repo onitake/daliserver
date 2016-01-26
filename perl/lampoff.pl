@@ -7,6 +7,15 @@ use Data::Dumper;
 
 my $lamp = $ARGV[0] || 0;
 my $dali = usbdali->new('localhost');
-$dali->connect() || die;
-$dali->send($dali->make_cmd('lamp', $lamp, 'off'));
-$dali->disconnect();
+if ($dali->connect()) {
+	$dali->send($dali->make_cmd('lamp', $lamp, 'off'));
+	my $resp = $dali->receive();
+	if ($resp) {
+		print("Received status:$resp->{status} response:$resp->{response}\n");
+	} else {
+		print("Receive error\n");
+	}
+	$dali->disconnect();
+} else {
+	print("Can't connect\n");
+}
