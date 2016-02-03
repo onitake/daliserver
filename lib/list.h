@@ -33,8 +33,8 @@ typedef struct List *ListPtr;
 struct ListNode;
 typedef struct ListNode *ListNodePtr;
 
-typedef void (*ListDataFreeFunc)(void *);
-typedef int (*ListFindNodeFunc)(void *, void *);
+typedef void (*ListDataFreeFunc)(void *data);
+typedef int (*ListFindNodeFunc)(void *data, void *arg);
 
 // Creates a new empty double-linked list
 // func is a type-specific destructor for the data to be put into the list
@@ -64,6 +64,6 @@ ListNodePtr list_first(ListPtr list);
 ListNodePtr list_next(ListNodePtr node);
 
 // Convenience compare function that checks if the data pointers point to the same location
-int list_equal(void *, void *);
+int list_equal(void *data, void *arg);
 
 #endif /*_LIST_H*/

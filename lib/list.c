@@ -213,6 +213,6 @@ ListNodePtr list_next(ListNodePtr node) {
 	return NULL;
 }
 
-int list_equal(void *a, void *b) {
-	return a == b;
+int list_equal(void *data, void *arg) {
+	return data == arg;
 }
