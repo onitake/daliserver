@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, onitake <onitake@gmail.com>
+/* Copyright (c) 2011, 2016, onitake <onitake@gmail.com>
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -79,6 +79,10 @@ void usbdali_set_outband_callback(UsbDaliPtr dali, UsbDaliOutBandCallback callba
 void usbdali_set_inband_callback(UsbDaliPtr dali, UsbDaliInBandCallback callback);
 // Returns the next timeout to use for polling in msecs, -1 if no timeout is active
 int usbdali_get_timeout(UsbDaliPtr dali);
+// Sets the callback arguments of all active and queued transactions to NULL
+// if they are equal to arg.
+// Callbacks will still be called later, they should handle this gracefully.
+void usbdali_cancel(UsbDaliPtr dali, void *arg);
 
 #endif /*_USB_H*/
 

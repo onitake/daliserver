@@ -925,3 +925,18 @@ int usbdali_get_timeout(UsbDaliPtr dali) {
 	log_debug("Returning timeout -1");
 	return -1;
 }
+
+void usbdali_cancel(UsbDaliPtr dali, void *arg) {
+	if (dali && arg) {
+		if (dali->transaction && dali->transaction->arg == arg) {
+			dali->transaction->arg = NULL;
+		}
+		ListNodePtr node;
+		for (node = list_first(dali->queue); node; node = list_next(node)) {
+			UsbDaliTransaction *transaction = (UsbDaliTransaction *) list_data(node);
+			if (transaction && transaction->arg == arg) {
+				transaction->arg = NULL;
+			}
+		}
+	}
+}
