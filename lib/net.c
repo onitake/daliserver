@@ -43,6 +43,8 @@ struct Server {
 	size_t framesize;
 	ConnectionReceivedFunc recvfn;
 	void *arg;
+	ConnectionDestroyFunc conndestroy;
+	void *conndestroyarg;
 };
 
 struct Connection {
@@ -50,6 +52,8 @@ struct Connection {
 	int socket;
 	char *buffer;
 	int waiting;
+	ConnectionDestroyFunc destroy;
+	void *destroyarg;
 };
 
 // Queue up 50 connections at most
@@ -86,6 +90,8 @@ ServerPtr server_open(DispatchPtr dispatch, const char *listenaddr, unsigned int
 						server->framesize = framesize;
 						server->recvfn = recvfn;
 						server->arg = arg;
+						server->conndestroy = NULL;
+						server->conndestroyarg = NULL;
 						return server;
 					} else {
 						log_error("Error listening on socket: %s", strerror(errno));
@@ -159,24 +165,33 @@ static void server_connection_remove(ServerPtr server, ConnectionPtr conn) {
 }
 
 static ConnectionPtr connection_new(ServerPtr server, int socket) {
-	ConnectionPtr conn = malloc(sizeof(struct Connection));
-	if (conn) {
-		conn->server = server;
-		conn->socket = socket;
-		conn->buffer = malloc(server->framesize);
-		conn->waiting = 0;
-		if (server->dispatch) {
-			dispatch_add(server->dispatch, socket, -1, connection_ready, connection_error, NULL, conn);
+	if (server) {
+		ConnectionPtr conn = malloc(sizeof(struct Connection));
+		if (conn) {
+			conn->server = server;
+			conn->socket = socket;
+			conn->buffer = malloc(server->framesize);
+			conn->waiting = 0;
+			conn->destroy = server->conndestroy;
+			conn->destroyarg = server->conndestroyarg;
+			if (server->dispatch) {
+				dispatch_add(server->dispatch, socket, -1, connection_ready, connection_error, NULL, conn);
+			}
 		}
+		return conn;
 	}
-	return conn;
+	return NULL;
 }
 
 static void connection_free(ConnectionPtr conn) {
 	if (conn) {
 		log_info("Closing connection %d", conn->socket);
+		if (conn->destroy) {
+			log_debug("Calling destroy callback before closing connection");
+			conn->destroy(conn->destroyarg, conn);
+		}
 		close(conn->socket);
-		if (conn->server->dispatch) {
+		if (conn->server && conn->server->dispatch) {
 			dispatch_remove_fd(conn->server->dispatch, conn->socket);
 		}
 		free(conn->buffer);
@@ -264,5 +279,12 @@ void server_broadcast(ServerPtr server, const char *buffer, size_t bufsize) {
 				connection_reply(conn, buffer, bufsize);
 			}
 		}
+	}
+}
+
+void server_set_connection_destroy_callback(ServerPtr server, ConnectionDestroyFunc destroy, void *arg) {
+	if (server) {
+		server->conndestroy = destroy;
+		server->conndestroyarg = arg;
 	}
 }

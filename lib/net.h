@@ -35,6 +35,7 @@ struct Connection;
 typedef struct Connection *ConnectionPtr;
 
 typedef void (*ConnectionReceivedFunc)(void *arg, const char *buffer, size_t bufsize, ConnectionPtr conn);
+typedef void (*ConnectionDestroyFunc)(void *arg, ConnectionPtr conn);
 
 // Creates a new server that listens on the specified address and port
 // Use 0.0.0.0 to listen on all interfaces
@@ -43,6 +44,8 @@ ServerPtr server_open(DispatchPtr dispatch, const char *listenaddr, unsigned int
 void server_close(ServerPtr server);
 // Sends a message to all connections not waiting for a reply
 void server_broadcast(ServerPtr server, const char *buffer, size_t bufsize);
+// Assigns a handler to be called before a connection object is destroyed
+void server_set_connection_destroy_callback(ServerPtr conn, ConnectionDestroyFunc destroy, void *arg);
 
 // Sends a reply
 void connection_reply(ConnectionPtr conn, const char *buffer, size_t bufsize);
