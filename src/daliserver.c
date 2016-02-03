@@ -100,6 +100,7 @@ static void signal_handler(int sig);
 static void dali_outband_handler(UsbDaliError err, DaliFramePtr frame, unsigned int status, void *arg);
 static void dali_inband_handler(UsbDaliError err, DaliFramePtr frame, unsigned int response, unsigned int status, void *arg);
 static void net_frame_handler(void *arg, const char *buffer, size_t bufsize, ConnectionPtr conn);
+static void net_dequeue_connection(void *arg, ConnectionPtr conn);
 static Options *parse_opt(int argc, char *const argv[]);
 static void free_opt(Options *opts);
 static int split_usbdev(const char *arg, int *usbbus, int *usbdev);
@@ -157,6 +158,8 @@ int main(int argc, char *const argv[]) {
 			if (!server) {
 				error = -1;
 			} else {
+				server_set_connection_destroy_callback(server, net_dequeue_connection, usb);
+				
 				if (usb) {
 					usbdali_set_outband_callback(usb, dali_outband_handler, server);
 					usbdali_set_inband_callback(usb, dali_inband_handler);
@@ -266,6 +269,15 @@ static void net_frame_handler(void *arg, const char *buffer, size_t bufsize, Con
 				if (dali) {
 					DaliFramePtr frame = daliframe_new((uint8_t) buffer[2], (uint8_t) buffer[3]);
 					usbdali_queue(dali, frame, conn);
+				} else {
+					uint8_t response = 0;
+					log_info("Faking response: 0x%02x", response);
+					char rbuffer[DEFAULT_NET_FRAMESIZE];
+					rbuffer[0] = DEFAULT_NET_PROTOCOL;
+					rbuffer[1] = NET_STATUS_RESPONSE;
+					rbuffer[2] = (uint8_t) response;
+					rbuffer[3] = 0;
+					connection_reply(conn, rbuffer, sizeof(rbuffer));
 				}
 			} else {
 				log_warn("Frame with unsupported command received: %u", (uint8_t) buffer[1]);
@@ -275,6 +287,15 @@ static void net_frame_handler(void *arg, const char *buffer, size_t bufsize, Con
 		}
 	}
 }
+
+void net_dequeue_connection(void *arg, ConnectionPtr conn) {
+	if (arg && conn) {
+		log_debug("Dequeueing connection %p", conn);
+		UsbDaliPtr usb = (UsbDaliPtr) arg;
+		usbdali_cancel(usb, conn);
+	}
+}
+
 
 static Options *parse_opt(int argc, char *const argv[]) {
 	Options *opts = malloc(sizeof(Options));
