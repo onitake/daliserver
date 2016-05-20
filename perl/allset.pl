@@ -23,7 +23,7 @@ if ($dali->connect()) {
 	$dali->send(usbdali->make_dim('broadcast', $dim));
 	my $resp = $dali->receive();
 	if ($resp) {
-		print("Received status:$resp->{status} response:$resp->{response}\n");
+		print("Received status:$resp->{status}\n");
 	} else {
 		print("Receive error\n");
 	}
