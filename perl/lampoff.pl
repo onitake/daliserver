@@ -11,7 +11,11 @@ if ($dali->connect()) {
 	$dali->send($dali->make_cmd('lamp', $lamp, 'off'));
 	my $resp = $dali->receive();
 	if ($resp) {
-		print("Received status:$resp->{status} response:$resp->{response}\n");
+		if ($resp->{status} eq 'response') {
+			print("Received status:$resp->{status} response:$resp->{response}\n");
+		} else {
+			print("Received status:$resp->{status}\n");
+		}
 	} else {
 		print("Receive error\n");
 	}
