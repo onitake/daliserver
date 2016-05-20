@@ -106,22 +106,27 @@ sub receive {
 		if ($protocol != $self->{protocol}) {
 			warn("Invalid frame received. Protocol version=$protocol, expected $self->{protocol}\n");
 		} else {
-			my $ret = { response => $response };
+			my $ret = { };
 			given ($status) {
 				when (0) {
 					$ret->{status} = 'success';
 				}
 				when (1) {
 					$ret->{status} = 'response';
+					$ret->{response} = $response;
 				}
 				when (2) {
 					$ret->{status} = 'broadcast';
+					$ret->{address} = $response;
+					$ret->{command} = $pad;
 				}
 				when (255) {
 					$ret->{status} = 'error';
 				}
 				default {
 					$ret->{status} = $status;
+					$ret->{data0} = $response;
+					$ret->{data1} = $pad;
 				}
 			}
 			return $ret;
