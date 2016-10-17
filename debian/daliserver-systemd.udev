@@ -1,0 +1,1 @@
+SUBSYSTEM=="usb", ACTION=="add", ATTR{idVendor}=="17b5", ATTR{idProduct}=="0020", TAG+="systemd", PROGRAM="/bin/systemd-escape -p --template=daliserver-systemd@.service %S%p", ENV{SYSTEMD_WANTS}="%c"
