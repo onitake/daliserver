@@ -97,7 +97,7 @@ mode and set log and run files accordingly.
 On Mac OS X, you will need to install both Apple developer tools (Xcode with
 command line utilities) and pkg-config, libusb-1.0, automake and autoconf.
 There are different ways to achieve this, the easiest is probably with the
-help of the Homenbrew utility.
+help of the Homebrew utility.
 
 Xcode can be obtained from the Mac App Store or the Apple Developer Site.
 
