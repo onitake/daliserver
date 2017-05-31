@@ -662,7 +662,7 @@ static void usbdali_receive_callback(struct libusb_transfer *transfer) {
 		case LIBUSB_TRANSFER_COMPLETED: {
 			UsbDaliIn in;
 			size_t length = transfer->actual_length;
-			if (unpack(">CC CCCSC", (const char *) transfer->buffer, &length, &in.direction, &in.type, &in.ecommand, &in.address, &in.command, &in.status, &in.seqnum) == -1) {
+			if (unpack(">CC CCCSC", transfer->buffer, &length, &in.direction, &in.type, &in.ecommand, &in.address, &in.command, &in.status, &in.seqnum) == -1) {
 				log_error("Invalid packet received");
 			} else {
 				if (dali) {
@@ -834,12 +834,12 @@ static int usbdali_send(UsbDaliPtr dali, UsbDaliTransaction *transaction) {
 		memset(buffer, 0, USBDALI_LENGTH);
 		size_t length = USBDALI_LENGTH;
 		if (transaction->request->ecommand == 0) {
-			if (!pack("CCCCCCCC", (char *) buffer, &length, USBDALI_DIRECTION_USB, dali->seq_num, 0x00, USBDALI_TYPE_16BIT, 0x00, 0x00, transaction->request->address, transaction->request->command)) {
+			if (!pack("CCCCCCCC", buffer, &length, USBDALI_DIRECTION_USB, dali->seq_num, 0x00, USBDALI_TYPE_16BIT, 0x00, 0x00, transaction->request->address, transaction->request->command)) {
 				free(buffer);
 				return -1;
 			}
 		} else {
-			if (!pack("CCCCCCCC", (char *) buffer, &length, USBDALI_DIRECTION_USB, dali->seq_num, 0x00, USBDALI_TYPE_24BIT, 0x00, transaction->request->ecommand, transaction->request->address, transaction->request->command)) {
+			if (!pack("CCCCCCCC", buffer, &length, USBDALI_DIRECTION_USB, dali->seq_num, 0x00, USBDALI_TYPE_24BIT, 0x00, transaction->request->ecommand, transaction->request->address, transaction->request->command)) {
 				free(buffer);
 				return -1;
 			}

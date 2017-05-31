@@ -26,9 +26,10 @@
 #ifndef _PACK_H
 #define _PACK_H
 
+#include <stdint.h>
 #include <sys/types.h>
 
-char *pack(const char *format, char *data, size_t *size, ...);
-int unpack(const char *format, const char *data, size_t *size, ...);
+uint8_t *pack(const char *format, uint8_t *data, size_t *size, ...);
+int unpack(const char *format, const uint8_t *data, size_t *size, ...);
 
 #endif /*_PACK_H*/

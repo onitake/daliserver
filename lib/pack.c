@@ -99,13 +99,13 @@ static size_t pack_length(const char *format) {
 	return length;
 }
 
-char *pack(const char *format, char *data, size_t *size, ...) {
+uint8_t *pack(const char *format, uint8_t *data, size_t *size, ...) {
 	size_t length = pack_length(format);
 	if (data && (!size || (length > *size))) {
 		errno = EINVAL;
 		return NULL;
 	}
-	char *ret;
+	uint8_t *ret;
 	if (!data) {
 		ret = malloc(length);
 		if (!ret) {
@@ -120,7 +120,7 @@ char *pack(const char *format, char *data, size_t *size, ...) {
 	va_list args;
 	va_start(args, size);
 	
-	char *out = ret;
+	uint8_t *out = ret;
 	const char *fmt;
 	for (fmt = format; *fmt; fmt++) {
 		switch (*fmt) {
@@ -221,7 +221,7 @@ char *pack(const char *format, char *data, size_t *size, ...) {
 	return ret;
 }
 
-int unpack(const char *format, const char *data, size_t *size, ...) {
+int unpack(const char *format, const uint8_t *data, size_t *size, ...) {
 	size_t length = pack_length(format);
 	if (data && (!size || (length > *size))) {
 		errno = EINVAL;
@@ -232,7 +232,7 @@ int unpack(const char *format, const char *data, size_t *size, ...) {
 	va_list args;
 	va_start(args, size);
 	
-	unsigned char *in = (unsigned char *) data;
+	const uint8_t *in = (const uint8_t *) data;
 	const char *fmt;
 	for (fmt = format; *fmt; fmt++) {
 		switch (*fmt) {
