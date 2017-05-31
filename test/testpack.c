@@ -33,5 +33,9 @@ int main(int argc, char **argv) {
 	float2int f2i2;
 	f2i2.d = u.d;
 	printf("0x%x 0x%x 0x%" PRIx64 " 0x%x\n", u.a, u.b, u.c, f2i2.i);
+	if (t.a == u.a && t.b == u.b && t.c == u.c && t.d == u.d) {
 		return 0;
+	} else {
+		return 1;
+	}
 }
