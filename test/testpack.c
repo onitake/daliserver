@@ -5,8 +5,8 @@
 #include "util.h"
 
 struct Test {
-	unsigned int a;
-	char b;
+	uint32_t a;
+	int8_t b;
 	int64_t c;
 	float d;
 };
