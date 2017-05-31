@@ -239,82 +239,42 @@ int unpack(const char *format, const uint8_t *data, size_t *size, ...) {
 			case PACK_SKIP: {
 				in++;
 			} break;
-			case PACK_BYTE: {
-				int *value = va_arg(args, int *);
-				*value = (int) in[0];
-				in++;
-			} break;
+			case PACK_BYTE:
 			case PACK_UBYTE: {
-				unsigned int *value = va_arg(args, unsigned int *);
+				uint8_t *value = va_arg(args, uint8_t *);
 				*value = in[0];
 				in++;
 			} break;
-			case PACK_SHORT: {
-				uint16_t value;
-				if (little) {
-					value = in[0] | (in[1] << 8);
-				} else {
-					value = in[1] | (in[0] << 8);
-				}
-				int *out = va_arg(args, int *);
-				*out = (int16_t) value;
-				in += 2;
-			} break;
+			case PACK_SHORT:
 			case PACK_USHORT: {
-				uint16_t value;
+				uint16_t *value = va_arg(args, uint16_t *);
 				if (little) {
-					value = in[0] | (in[1] << 8);
+					*value = (uint16_t) in[0] | ((uint16_t) in[1] << 8);
 				} else {
-					value = in[1] | (in[0] << 8);
+					*value = (uint16_t) in[1] | ((uint16_t) in[0] << 8);
 				}
-				unsigned int *out = va_arg(args, unsigned int *);
-				*out = value;
 				in += 2;
 			} break;
-			case PACK_INT: {
-				uint32_t value;
-				if (little) {
-					value = in[0] | (in[1] << 8) | (in[2] << 16) | (in[3] << 24);
-				} else {
-					value = in[3] | (in[2] << 8) | (in[1] << 16) | (in[0] << 24);
-				}
-				int32_t *out = va_arg(args, int32_t *);
-				*out = (int32_t) value;
-				in += 4;
-			} break;
+			case PACK_INT:
 			case PACK_UINT:
 			case PACK_FLOAT: {
-				uint32_t value;
+				uint32_t *value = va_arg(args, uint32_t *);
 				if (little) {
-					value = in[0] | (in[1] << 8) | (in[2] << 16) | (in[3] << 24);
+					*value = (uint32_t) in[0] | ((uint32_t) in[1] << 8) | ((uint32_t) in[2] << 16) | ((uint32_t) in[3] << 24);
 				} else {
-					value = in[3] | (in[2] << 8) | (in[1] << 16) | (in[0] << 24);
+					*value = (uint32_t) in[3] | ((uint32_t) in[2] << 8) | ((uint32_t) in[1] << 16) | ((uint32_t) in[0] << 24);
 				}
-				uint32_t *out = va_arg(args, uint32_t *);
-				*out = value;
 				in += 4;
 			} break;
-			case PACK_LONG: {
-				uint64_t value;
-				if (little) {
-					value = (uint64_t) in[0] | ((uint64_t) in[1] << 8) | ((uint64_t) in[2] << 16) | ((uint64_t) in[3] << 24) | ((uint64_t) in[4] << 32) | ((uint64_t) in[5] << 40) | ((uint64_t) in[6] << 48) | ((uint64_t) in[7] << 56);
-				} else {
-					value = (uint64_t) in[7] | ((uint64_t) in[6] << 8) | ((uint64_t) in[5] << 16) | ((uint64_t) in[4] << 24) | ((uint64_t) in[3] << 32) | ((uint64_t) in[2] << 40) | ((uint64_t) in[1] << 48) | ((uint64_t) in[0] << 56);
-				}
-				int64_t *out = va_arg(args, int64_t *);
-				*out = (int64_t) value;
-				in += 8;
-			} break;
+			case PACK_LONG:
 			case PACK_ULONG:
 			case PACK_DOUBLE: {
-				uint64_t value;
+				uint64_t *value = va_arg(args, uint64_t *);
 				if (little) {
-					value = (uint64_t) in[0] | ((uint64_t) in[1] << 8) | ((uint64_t) in[2] << 16) | ((uint64_t) in[3] << 24) | ((uint64_t) in[4] << 32) | ((uint64_t) in[5] << 40) | ((uint64_t) in[6] << 48) | ((uint64_t) in[7] << 56);
+					*value = (uint64_t) in[0] | ((uint64_t) in[1] << 8) | ((uint64_t) in[2] << 16) | ((uint64_t) in[3] << 24) | ((uint64_t) in[4] << 32) | ((uint64_t) in[5] << 40) | ((uint64_t) in[6] << 48) | ((uint64_t) in[7] << 56);
 				} else {
-					value = (uint64_t) in[7] | ((uint64_t) in[6] << 8) | ((uint64_t) in[5] << 16) | ((uint64_t) in[4] << 24) | ((uint64_t) in[3] << 32) | ((uint64_t) in[2] << 40) | ((uint64_t) in[1] << 48) | ((uint64_t) in[0] << 56);
+					*value = (uint64_t) in[7] | ((uint64_t) in[6] << 8) | ((uint64_t) in[5] << 16) | ((uint64_t) in[4] << 24) | ((uint64_t) in[3] << 32) | ((uint64_t) in[2] << 40) | ((uint64_t) in[1] << 48) | ((uint64_t) in[0] << 56);
 				}
-				uint64_t *out = va_arg(args, uint64_t *);
-				*out = value;
 				in += 8;
 			} break;
 			case PACK_LITTLE: {
