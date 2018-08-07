@@ -74,35 +74,40 @@ ServerPtr server_open(DispatchPtr dispatch, const char *listenaddr, unsigned int
 		log_debug("Opening connection on %s:%u", listenaddr, port);
 		server->listener = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 		if (server->listener != -1) {
-			struct sockaddr_in all_if;
-			memset(&all_if, 0, sizeof(all_if));
-			all_if.sin_family = AF_INET;
-			all_if.sin_port = htons((uint16_t) port);
-			if (inet_pton(AF_INET, listenaddr, &all_if.sin_addr) == 1) {
-				if (bind(server->listener, (struct sockaddr *) &all_if, sizeof(all_if)) == 0) {
-					if (listen(server->listener, MAX_CONNECTIONS) == 0) {
-						server->dispatch = dispatch;
-						if (dispatch) {
-							log_debug("Registering server socket %d", server->listener);
-							dispatch_add(dispatch, server->listener, POLLIN, server_listener_ready, server_listener_error, NULL, server);
+			if (setsockopt(server->listener, SOL_SOCKET, SO_REUSEADDR, & (int) {1}, sizeof(int)) == 0) {
+				struct sockaddr_in all_if;
+				memset(&all_if, 0, sizeof(all_if));
+				all_if.sin_family = AF_INET;
+				all_if.sin_port = htons((uint16_t) port);
+				if (inet_pton(AF_INET, listenaddr, &all_if.sin_addr) == 1) {
+					if (bind(server->listener, (struct sockaddr *) &all_if, sizeof(all_if)) == 0) {
+						if (listen(server->listener, MAX_CONNECTIONS) == 0) {
+							server->dispatch = dispatch;
+							if (dispatch) {
+								log_debug("Registering server socket %d", server->listener);
+								dispatch_add(dispatch, server->listener, POLLIN, server_listener_ready,
+											 server_listener_error, NULL, server);
+							}
+							server->connections = list_new((ListDataFreeFunc) connection_free);
+							server->framesize = framesize;
+							server->recvfn = recvfn;
+							server->arg = arg;
+							server->conndestroy = NULL;
+							server->conndestroyarg = NULL;
+							return server;
+						} else {
+							log_error("Error listening on socket: %s", strerror(errno));
 						}
-						server->connections = list_new((ListDataFreeFunc) connection_free);
-						server->framesize = framesize;
-						server->recvfn = recvfn;
-						server->arg = arg;
-						server->conndestroy = NULL;
-						server->conndestroyarg = NULL;
-						return server;
 					} else {
-						log_error("Error listening on socket: %s", strerror(errno));
+						log_error("Error binding to socket: %s", strerror(errno));
 					}
 				} else {
-					log_error("Error binding to socket: %s", strerror(errno));
+					log_error("Error converting address: %s", strerror(errno));
 				}
+				close(server->listener);
 			} else {
-				log_error("Error converting address: %s", strerror(errno));
+				log_error("Error setting SO_REUSEADDR: %s", strerror(errno));
 			}
-			close(server->listener);
 		} else {
 			log_error("Error creating socket: %s", strerror(errno));
 		}
