@@ -1,16 +1,20 @@
 Source: daliserver
 Section: net
-Priority: extra
+Priority: optional
 Maintainer: Gregor Riepl <onitake@gmail.com>
-Build-Depends: debhelper (>= 8.0.0), autotools-dev, pkg-config, libusb-1.0-0-dev
-Standards-Version: 3.9.2
-Vcs-Git: git://github.com/onitake/daliserver.git
+Build-Depends: debhelper (>= 10),
+ autotools-dev, pkg-config,
+ libusb-1.0-0-dev
+Standards-Version: 3.9.8
+Vcs-Git: https://github.com/onitake/daliserver.git
 Vcs-Browser: https://github.com/onitake/daliserver
 
 Package: daliserver
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, libusb-1.0-0
-Description: daliserver
- daliserver is a command multiplexing server for the Tridonic DALI USB adapter,
- allowing access to a DALI bus from any USB-equipped computer that supports
- libusb.
+Depends: ${shlibs:Depends}, ${misc:Depends}, lsb-base
+Description: Command multiplexing server for DALI lighting buses
+ Exposes a DALI (Digital Addressable Lighting Interface) bus to the
+ local machine by interfacing with the Tridonic DALI USB adapter.
+ .
+ Multiple clients can connect to the multiplexer to send commands to and
+ receive responses from devices connected to the bus.

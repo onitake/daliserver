@@ -21,6 +21,8 @@
 /debian/daliserver.substvars
 /debian/daliserver/
 /debian/files
+/debian/autoreconf.*
+/debian/.debhelper
 /depcomp
 /install-sh
 /missing

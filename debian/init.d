@@ -1,4 +1,4 @@
-#! /bin/sh
+#! /bin/bash
 ### BEGIN INIT INFO
 # Provides:          daliserver
 # Required-Start:    $remote_fs $syslog
@@ -67,51 +67,47 @@ do_stop() {
 }
 
 case "$1" in
-  start)
-	[ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC" "$NAME"
-	do_start
-	case "$?" in
-		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
-		2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
-	esac
-	;;
-  stop)
-	[ "$VERBOSE" != no ] && log_daemon_msg "Stopping $DESC" "$NAME"
-	do_stop
-	case "$?" in
-		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
-		2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
-	esac
-	;;
-  status)
-       status_of_proc "$DAEMON" "$NAME" && exit 0 || exit $?
-       ;;
-  restart)
-	#
-	# If the "reload" option is implemented then remove the
-	# 'force-reload' alias
-	#
-	log_daemon_msg "Restarting $DESC" "$NAME"
-	do_stop
-	case "$?" in
-	  0|1)
+	start)
+		[ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC" "$NAME"
 		do_start
 		case "$?" in
-			0) log_end_msg 0 ;;
-			1) log_end_msg 1 ;; # Old process is still running
-			*) log_end_msg 1 ;; # Failed to start
+			0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
+			2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
 		esac
 		;;
-	  *)
-	  	# Failed to stop
-		log_end_msg 1
+	stop)
+		[ "$VERBOSE" != no ] && log_daemon_msg "Stopping $DESC" "$NAME"
+		do_stop
+		case "$?" in
+			0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
+			2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
+		esac
 		;;
-	esac
-	;;
-  *)
-	echo "Usage: $SCRIPTNAME {start|stop|status|restart}" >&2
-	exit 3
-	;;
+	status)
+		status_of_proc "$DAEMON" "$NAME" && exit 0 || exit $?
+		;;
+	restart | force-reload)
+		log_daemon_msg "Restarting $DESC" "$NAME"
+		do_stop
+		case "$?" in
+		0|1)
+			do_start
+			case "$?" in
+				0) log_end_msg 0 ;;
+				1) log_end_msg 1 ;; # Old process is still running
+				*) log_end_msg 1 ;; # Failed to start
+			esac
+			;;
+		*)
+			# Failed to stop
+			log_end_msg 1
+			;;
+		esac
+		;;
+	*)
+		echo "Usage: $SCRIPTNAME {start|stop|status|restart}" >&2
+		exit 3
+		;;
 esac
 
 :
