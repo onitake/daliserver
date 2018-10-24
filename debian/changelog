@@ -1,8 +1,17 @@
-daliserver (0.2) UNRELEASED; urgency=medium
+daliserver (0.3) UNRELEASED; urgency=medium
+
+  * Numerous bug fixes (thanks to all contributors!)
+  * Debian packaging cleanup, hardening
+  * SysV init and upstart scripts are deprecated.
+    Full switch to systemd units is still pending.
+
+ -- Gregor Riepl <onitake@gmail.com>  Wed, 24 Oct 2018 20:40:36 +0200
+
+daliserver (0.2) unstable; urgency=medium
 
   * Updated network protocol and improved message handling (Closes: #1)
 
- -- Gregor Riepl <onitake@gmail.com>  Tue, 13 Jan 2015 13:34:49 +0100
+ -- Gregor Riepl <onitake@gmail.com>  Wed, 24 Oct 2018 20:38:59 +0200
 
 daliserver (0.1) unstable; urgency=low
 
