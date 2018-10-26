@@ -75,7 +75,7 @@ ServerPtr server_open(DispatchPtr dispatch, const char *listenaddr, unsigned int
 		server->listener = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 		if (server->listener != -1) {
 			int enable_reuseaddr = 1;
-			if (setsockopt(server->listener, SOL_SOCKET, SO_REUSEADDR, &enable_reuseaddr, sizeof(int)) == 0) {
+			if (setsockopt(server->listener, SOL_SOCKET, SO_REUSEADDR, &enable_reuseaddr, sizeof(enable_reuseaddr)) == 0) {
 				struct sockaddr_in all_if;
 				memset(&all_if, 0, sizeof(all_if));
 				all_if.sin_family = AF_INET;
