@@ -5,11 +5,11 @@
  * modification, are permitted provided that the following conditions are met:
  *
  *    1. Redistributions of source code must retain the above copyright notice, this list of
- *       conditions and the following disclaimer.
+ *	 conditions and the following disclaimer.
  *
  *    2. Redistributions in binary form must reproduce the above copyright notice, this list
- *       of conditions and the following disclaimer in the documentation and/or other materials
- *       provided with the distribution.
+ *	 of conditions and the following disclaimer in the documentation and/or other materials
+ *	 provided with the distribution.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
@@ -74,7 +74,8 @@ ServerPtr server_open(DispatchPtr dispatch, const char *listenaddr, unsigned int
 		log_debug("Opening connection on %s:%u", listenaddr, port);
 		server->listener = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 		if (server->listener != -1) {
-			if (setsockopt(server->listener, SOL_SOCKET, SO_REUSEADDR, & (int) {1}, sizeof(int)) == 0) {
+			int enable_reuseaddr = 1;
+			if (setsockopt(server->listener, SOL_SOCKET, SO_REUSEADDR, &enable_reuseaddr, sizeof(int)) == 0) {
 				struct sockaddr_in all_if;
 				memset(&all_if, 0, sizeof(all_if));
 				all_if.sin_family = AF_INET;
