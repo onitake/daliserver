@@ -4,6 +4,7 @@ daliserver (0.3) UNRELEASED; urgency=medium
   * Debian packaging cleanup, hardening
   * SysV init and upstart scripts are deprecated.
     Full switch to systemd units is still pending.
+  * Set SO_REUSEADDR on socket to allow quick restarts
 
  -- Gregor Riepl <onitake@gmail.com>  Wed, 24 Oct 2018 20:40:36 +0200
 
