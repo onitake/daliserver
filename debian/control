@@ -11,7 +11,7 @@ Vcs-Browser: https://github.com/onitake/daliserver
 
 Package: daliserver
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, libusb-1.0-0, lsb-base
+Depends: ${shlibs:Depends}, ${misc:Depends}, lsb-base
 Conflicts: daliserver-upstart, daliserver-systemd
 Description: daliserver
  daliserver is a command multiplexing server for the Tridonic DALI USB adapter,
@@ -23,7 +23,7 @@ Description: daliserver
 
 Package: daliserver-upstart
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, libusb-1.0-0, upstart
+Depends: ${shlibs:Depends}, ${misc:Depends}, upstart
 Conflicts: daliserver, daliserver-systemd
 Replaces: daliserver
 Description: daliserver-upstart
@@ -35,7 +35,7 @@ Description: daliserver-upstart
 
 Package: daliserver-systemd
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, libusb-1.0-0, systemd
+Depends: ${shlibs:Depends}, ${misc:Depends}, systemd (>= 236)
 Conflicts: daliserver, daliserver-upstart
 Replaces: daliserver
 Description: daliserver
