@@ -67,7 +67,7 @@ void log_vprintf(unsigned int level, const char *format, va_list args) {
 #ifdef HAVE_LOCALTIME_R
 			struct tm nowtm;
 			localtime_r(&now, &nowtm);
-			snprintf(datefmt, 32, "[%d-%02d-%02d %02d:%02d:%02d] ", nowtm.tm_year + 1900, nowtm.tm_mon, nowtm.tm_mday, nowtm.tm_hour, nowtm.tm_min, nowtm.tm_sec);
+			snprintf(datefmt, 32, "[%d-%02d-%02d %02d:%02d:%02d] ", nowtm.tm_year + 1900, nowtm.tm_mon + 1, nowtm.tm_mday, nowtm.tm_hour, nowtm.tm_min, nowtm.tm_sec);
 #else
 			snprintf(datefmt, 32, "[%ld] ", now);
 #endif
