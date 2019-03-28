@@ -12,9 +12,35 @@ Vcs-Browser: https://github.com/onitake/daliserver
 Package: daliserver
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, lsb-base
-Description: Command multiplexing server for DALI lighting buses
- Exposes a DALI (Digital Addressable Lighting Interface) bus to the
- local machine by interfacing with the Tridonic DALI USB adapter.
- .
- Multiple clients can connect to the multiplexer to send commands to and
- receive responses from devices connected to the bus.
+Conflicts: daliserver-upstart, daliserver-systemd
+Description: daliserver
+ daliserver is a command multiplexing server for the Tridonic DALI USB adapter,
+ allowing access to a DALI bus from any USB-equipped computer that supports
+ libusb.  This package includes init scripts for sysvinit-based systems, or
+ systems that include a sysvinit compatibility layer.  Only one DALI USB
+ adapter is supported at a time by this package, and adapters cannot be
+ hotplugged.
+
+Package: daliserver-upstart
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, upstart
+Conflicts: daliserver, daliserver-systemd
+Replaces: daliserver
+Description: daliserver-upstart
+ daliserver is a command multiplexing server for the Tridonic DALI USB adapter,
+ allowing access to a DALI bus from any USB-equipped computer that supports
+ libusb.  This package includes init scripts for upstart-based systems.
+ Multiple simultaneous DALI USB adapters are supported, and adapters can
+ be hotplugged.
+
+Package: daliserver-systemd
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, systemd (>= 236)
+Conflicts: daliserver, daliserver-upstart
+Replaces: daliserver
+Description: daliserver
+ daliserver is a command multiplexing server for the Tridonic DALI USB adapter,
+ allowing access to a DALI bus from any USB-equipped computer that supports
+ libusb.  This package includes init scripts for systemd-based systems.
+ Multiple simultaneous DALI USB adapters are supported, and adapters can
+ be hotplugged.

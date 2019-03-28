@@ -1,0 +1,1 @@
+SUBSYSTEM=="usb", ACTION=="add", ATTR{idVendor}=="17b5", ATTR{idProduct}=="0020", TAG+="systemd", ENV{SYSTEMD_WANTS}="daliserver-systemd@.service"

@@ -1,0 +1,7 @@
+[Unit]
+Description=Command multiplexing server for Tridonic DALI USB on %i
+BindsTo=%i.device
+After=%i.device network.target
+
+[Service]
+ExecStart=/usr/lib/daliserver-systemd/daliserver-systemd-start %i

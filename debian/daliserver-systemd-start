@@ -1,0 +1,12 @@
+#!/bin/bash
+
+set -e
+
+DEVPATH=/"$(/bin/systemd-escape --unescape ${1})"
+BUSNUM=$(cat ${DEVPATH}/busnum)
+DEVNUM=$(cat ${DEVPATH}/devnum)
+ID_SERIAL_SHORT=$(cat ${DEVPATH}/serial)
+
+source /etc/default/daliserver-systemd
+
+exec /usr/bin/daliserver $DALISERVER_OPTS -u $BUSNUM:$DEVNUM
