@@ -202,7 +202,7 @@ sub make_cmd {
 					$code0 = 0xa1;
 					$code1 = 0x00;
 				}
-				when (/dtr/) {
+				when (/dtr0/) {
 					$code0 = 0xa3;
 					$code1 = $cmd & 0xff;
 				}
@@ -249,6 +249,18 @@ sub make_cmd {
 				when (/phys/) {
 					$code0 = 0xbd;
 					$code1 = 0x00;
+				}
+				when (/type/) {
+					$code0 = 0xc1;
+					$code1 = $cmd & 0xff;
+				}
+				when (/dtr1/) {
+					$code0 = 0xc3;
+					$code1 = $cmd & 0xff;
+				}
+				when (/dtr2/) {
+					$code0 = 0xc5;
+					$code1 = $cmd & 0xff;
 				}
 				default {
 					$code0 = 0x00;
@@ -405,6 +417,9 @@ sub make_cmd {
 		}
 		when (/randoml/) {
 			$code = 0xc4;
+		}
+		when (/temperature/) {
+			$code = 0xe7;
 		}
 		default {
 			$code = 0x00;
