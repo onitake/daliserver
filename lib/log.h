@@ -51,11 +51,15 @@ void log_printf(unsigned int level, const char *format, ...);
 void log_set_level(unsigned int level);
 // Gets the current log level
 unsigned int log_get_level();
+// Reopen the configured log file (if any), e.g. after logrotate
+// Returns 0 upon success, -1 if the file could not be opened
+// (also generates a warning to the other logging channels in this case)
+int log_reopen_file();
 // Enables/disables logging to a log file
 // Pass NULL for logfile to disable
 // Returns 0 upon success, -1 if the file could not be opened
 // (also generates a warning to the other logging channels in this case)
-int log_set_logfile(const char *logfile);
+int log_set_logfile(const char *logfile_path);
 // Set the log level for the logfile
 // The default is the same as for console logging
 void log_set_logfile_level(unsigned int level);
