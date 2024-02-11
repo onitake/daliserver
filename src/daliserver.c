@@ -177,6 +177,7 @@ int main(int argc, char *const argv[]) {
 					running = 1;
 					signal(SIGTERM, signal_handler);
 					signal(SIGINT, signal_handler);
+					signal(SIGHUP, signal_handler);
 					while (running && dispatch_run(dispatch, usbdali_get_timeout(usb)));
 
 					log_info("Shutting daliserver down");
@@ -201,6 +202,11 @@ int main(int argc, char *const argv[]) {
 }
 
 static void signal_handler(int sig) {
+	if (sig == SIGHUP) {
+		log_info("Signal received, reopening log file");
+		log_reopen_file();
+		return;
+	}
 	if (running) {
 		log_info("Signal received, shutting down");
 		running = 0;

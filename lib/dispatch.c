@@ -73,7 +73,7 @@ DispatchStatus dispatch_run(DispatchPtr table, int timeout) {
 			if (errno != EINTR) {
 				log_error("Error waiting for I/O events");
 			}
-			return 0;
+			return 1;
 		} else if (ready == 0) {
 			// timeout
 			log_debug("poll() timeout");

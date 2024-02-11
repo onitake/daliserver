@@ -1,0 +1,13 @@
+/var/log/daliserver.log
+{
+	rotate 7
+	daily
+	missingok
+	notifempty
+	compress
+	delaycompress
+	sharedscripts
+	postrotate
+		/usr/bin/killall -HUP daliserver
+	endscript
+}

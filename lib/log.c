@@ -45,6 +45,7 @@
 static unsigned int loglevel = LOG_LEVEL_DEFAULT;
 static unsigned int loglevel_file = LOG_LEVEL_DEFAULT;
 static unsigned int loglevel_syslog = LOG_LEVEL_ERROR;
+static char *logfile = NULL;
 static FILE *fp_logfile = NULL;
 static int enabled_syslog = 0;
 
@@ -155,25 +156,32 @@ unsigned int log_get_level() {
 	return loglevel;
 }
 
-int log_set_logfile(const char *logfile) {
+int log_reopen_file() {
+	if (fp_logfile) {
+		fclose(fp_logfile);
+		fp_logfile = NULL;
+	}
 	if (logfile) {
-		FILE *fp = fopen(logfile, "a");
-		if (!fp) {
+		fp_logfile = fopen(logfile, "a");
+		if (!fp_logfile) {
 			log_error("Error opening log file %s: %s", logfile, strerror(errno));
 			return -1;
-		} else {
-			if (fp_logfile) {
-				fclose(fp_logfile);
-			}
-			fp_logfile = fp;
-		}
-	} else {
-		if (fp_logfile) {
-			fclose(fp_logfile);
-			fp_logfile = NULL;
 		}
 	}
 	return 0;
+}
+
+int log_set_logfile(const char *logfile_path) {
+	free(logfile);
+	logfile = NULL;
+	if (logfile_path != NULL) {
+		logfile = strdup(logfile_path);
+		if (!logfile) {
+			log_error("Error setting log file %s: %s", logfile_path, strerror(errno));
+			return -1;
+		}
+	}
+	return log_reopen_file();
 }
 
 void log_set_logfile_level(unsigned int level) {
