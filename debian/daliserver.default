@@ -1,6 +1,8 @@
 # Additional options for daliserver
+# -d <loglevel> sets the logging level (fatal, error, warn, info, default=info)
 # -n enables testing mode without USB connectivity
-# -l sets the listening address (use 0.0.0.0 to listen on all interfaces)
-# -p changes the port
+# -u <bus:dev> only map to one specific USB port (will use the first found otherwise)
+# -l <address> sets the listening address (use 0.0.0.0 to listen on all interfaces, default=127.0.0.1)
+# -p <port> changes the TCP port (default=55825)
 DALISERVER_OPTS=""
 
