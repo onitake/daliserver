@@ -1,4 +1,4 @@
-daliserver (0.3) UNRELEASED; urgency=medium
+daliserver (0.3) unstable; urgency=medium
 
   * Numerous bug fixes (thanks to all contributors!)
   * Debian packaging cleanup, hardening
