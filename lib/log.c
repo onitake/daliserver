@@ -177,9 +177,9 @@ int log_reopen_file() {
 }
 
 int log_set_logfile(const char *logfile_path) {
-	if (logfile_path == NULL) {
-		logfile = NULL;
-	} else {
+	free(logfile);
+	logfile = NULL;
+	if (logfile_path != NULL) {
 		logfile = strdup(logfile_path);
 		if (!logfile) {
 			log_error("Error setting log file %s: %s", logfile_path, strerror(errno));
