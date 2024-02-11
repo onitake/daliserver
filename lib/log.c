@@ -162,15 +162,10 @@ int log_reopen_file() {
 		fp_logfile = NULL;
 	}
 	if (logfile) {
-		FILE *fp = fopen(logfile, "a");
-		if (!fp) {
+		fp_logfile = fopen(logfile, "a");
+		if (!fp_logfile) {
 			log_error("Error opening log file %s: %s", logfile, strerror(errno));
 			return -1;
-		} else {
-			if (fp_logfile) {
-				fclose(fp_logfile);
-			}
-			fp_logfile = fp;
 		}
 	}
 	return 0;
