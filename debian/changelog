@@ -1,3 +1,9 @@
+daliserver (0.4) UNRELEASED; urgency=medium
+
+  * Add systemd unit, SysV init script is kept for compatibility
+
+ -- Gregor Riepl <onitake@gmail.com>  Sun, 11 Feb 2024 13:13:49 +0100
+
 daliserver (0.3) unstable; urgency=medium
 
   * Numerous bug fixes (thanks to all contributors!)
