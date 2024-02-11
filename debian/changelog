@@ -1,6 +1,8 @@
 daliserver (0.4) unstable; urgency=medium
 
   * Add systemd unit, SysV init script is kept for compatibility
+  * Add logrotate support (SIGHUP will reopen the log file)
+    Thanks to @s3lph
 
  -- Gregor Riepl <onitake@gmail.com>  Mon, 12 Feb 2024 00:32:54 +0100
 
