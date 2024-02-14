@@ -4,7 +4,7 @@ Description=DALI USB adapter multiplexer
 [Service]
 # see the defaults file for useful options
 EnvironmentFile=-/etc/default/daliserver
-ExecStart=/usr/bin/daliserver ${DALISERVER_OPTS}
+ExecStart=/usr/bin/daliserver $DALISERVER_OPTS
 
 [Install]
 WantedBy=multi-user.target
