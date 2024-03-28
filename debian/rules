@@ -4,12 +4,3 @@ export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 
 %:
 	dh $@ --with autoreconf
-
-override_dh_auto_install:
-	dh_auto_install -p daliserver --destdir debian/daliserver
-	dh_auto_install -p daliserver-upstart --destdir debian/daliserver-upstart
-	dh_auto_install -p daliserver-systemd --destdir debian/daliserver-systemd
-
-override_dh_installinit:
-	dh_installinit -p daliserver
-	dh_installinit -p daliserver-upstart -p daliserver-systemd --no-start

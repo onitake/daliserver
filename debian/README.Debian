@@ -1,0 +1,6 @@
+# daliserver on Debian
+
+This package can run multiple daliserver instances through instanced systemd units.
+
+This is currently accomplished via a helper script and a configuration file in
+/etc/default/daliserver. See there for more information.

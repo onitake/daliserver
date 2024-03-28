@@ -4,4 +4,4 @@ BindsTo=%i.device
 After=%i.device network.target
 
 [Service]
-ExecStart=/usr/lib/daliserver-systemd/daliserver-systemd-start %i
+ExecStart=/usr/libexec/daliserver/daliserver-start %i

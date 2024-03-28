@@ -19,8 +19,6 @@
 /debian/*.debhelper
 /debian/*.substvars
 /debian/daliserver/
-/debian/daliserver-upstart/
-/debian/daliserver-systemd/
 /debian/files
 /debian/debhelper-build-stamp
 /debian/autoreconf.*

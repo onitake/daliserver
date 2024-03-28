@@ -1,2 +1,0 @@
-debian/daliserver-systemd@.service lib/systemd/system
-debian/daliserver-systemd-start usr/lib/daliserver-systemd/

@@ -4,5 +4,11 @@
 # -u <bus:dev> only map to one specific USB port (will use the first found otherwise)
 # -l <address> sets the listening address (use 0.0.0.0 to listen on all interfaces, default=127.0.0.1)
 # -p <port> changes the TCP port (default=55825)
-DALISERVER_OPTS=""
+# -f sets the log file name
+DALISERVER_OPTS="-f /var/log/daliserver.log"
 
+# Options set based on serial number of DALI USB for -systemd package variant:
+case "$ID_SERIAL_SHORT" in
+#  000030A1) DALISERVER_OPTS="-p 55826 -f /var/log/daliserver-cellar.log" ;;
+#  0000249A) DALISERVER_OPTS="-p 55827 -f /var/log/daliserver-groundfloor.log" ;;
+esac
