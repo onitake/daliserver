@@ -1,2 +1,1 @@
-debian/daliserver@.service lib/systemd/system
 debian/daliserver-start usr/libexec/daliserver/

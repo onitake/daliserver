@@ -2,16 +2,14 @@ Source: daliserver
 Section: net
 Priority: optional
 Maintainer: Gregor Riepl <onitake@gmail.com>
-Build-Depends: debhelper (>= 10),
- autotools-dev, pkg-config,
- libusb-1.0-0-dev
-Standards-Version: 3.9.8
+Build-Depends: debhelper (>= 13), pkgconf, libusb-1.0-0-dev
+Standards-Version: 4.6.2
 Vcs-Git: https://github.com/onitake/daliserver.git
 Vcs-Browser: https://github.com/onitake/daliserver
 
 Package: daliserver
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, lsb-base
+Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: Command multiplexing server for DALI lighting buses
  Exposes a DALI (Digital Addressable Lighting Interface) bus to the
  local machine by interfacing with the Tridonic DALI USB adapter.

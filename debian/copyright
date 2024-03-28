@@ -1,28 +1,28 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 
 Files: *
-Copyright: 2010-2018, Gregor Riepl <onitake@gmail.com>
+Copyright: 2010-2024, Gregor Riepl <onitake@gmail.com>
  Johannes Wüthrich <johannes@deragent.net>
  philippstroehle <philippstroehle@users.noreply.github.com>
  Stephen Early <steve@greenend.org.uk>
  Robert Niederreiter <office@squarewave.at>
 License: BSD-2-clause
 
-Files: ./m4/ax_require_defined.m4
+Files: m4/ax_require_defined.m4
 Copyright: 2014, Mike Frysinger <vapier@gentoo.org>
 License: FSFAP
 
-Files: ./m4/ax_pthread.m4
+Files: m4/ax_pthread.m4
 Copyright: 2008, Steven G. Johnson <stevenj@alum.mit.edu>
   2011, Daniel Richard G. <skunk@iSKUNK.ORG>
 License: GPL-3+
 
-Files: ./m4/ax_append_flag.m4
+Files: m4/ax_append_flag.m4
 Copyright: 2008, Guido U. Draheim <guidod@gmx.de>
   2011, Maarten Bosmans <mkbosmans@gmail.com>
 License: GPL-3+
 
-Files: ./m4/ax_cflags_warn_all.m4
+Files: m4/ax_cflags_warn_all.m4
 Copyright: 2008, Guido U. Draheim <guidod@gmx.de>
   2010, Rhys Ulerich <rhys.ulerich@gmail.com>
 License: GPL-3+
